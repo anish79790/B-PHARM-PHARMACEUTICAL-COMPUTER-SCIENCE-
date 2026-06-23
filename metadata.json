@@ -1,0 +1,6 @@
+{
+  "name": "PharmaSense AI",
+  "description": "Your Smart Pharmacy Companion - Explore diseases, check drug classes, evaluate interactions & analyze lab reports with Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
