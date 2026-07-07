@@ -84,6 +84,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
     var age = MutableStateFlow(sharedPrefs.getInt("age", 30))
     var gender = MutableStateFlow(sharedPrefs.getString("gender", "Male") ?: "Male")
     var healthGoal = MutableStateFlow(sharedPrefs.getString("health_goal", "Maintain Good Health") ?: "Maintain Good Health")
+    var avatarIndex = MutableStateFlow(sharedPrefs.getInt("avatar_index", 0))
 
     // --- State Flows from Room (Isolated per user email) ---
     val reportsList: StateFlow<List<MedicalReport>> = email
@@ -862,6 +863,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun saveLoginStateToPrefs(user: User) {
+        val storedAvatar = sharedPrefs.getInt("avatar_index_${user.email}", 0)
         sharedPrefs.edit().apply {
             putBoolean("is_logged_in", true)
             putString("username", user.username)
@@ -870,6 +872,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
             putInt("age", user.age)
             putString("gender", user.gender)
             putString("health_goal", user.healthGoal)
+            putInt("avatar_index", storedAvatar)
             apply()
         }
         isLoggedIn.value = true
@@ -879,6 +882,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
         age.value = user.age
         gender.value = user.gender
         healthGoal.value = user.healthGoal
+        avatarIndex.value = storedAvatar
 
         generateProfileInsights()
     }
@@ -892,6 +896,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
             putInt("age", 30)
             putString("gender", "Male")
             putString("health_goal", "Maintain Good Health")
+            putInt("avatar_index", 0)
             apply()
         }
         isLoggedIn.value = false
@@ -901,10 +906,23 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
         age.value = 30
         gender.value = "Male"
         healthGoal.value = "Maintain Good Health"
+        avatarIndex.value = 0
         
         testingRecommendations.value = null
         personalDiet.value = null
         customDiscoveryNews.value = null
+    }
+
+    fun updateAvatarIndex(newIndex: Int) {
+        avatarIndex.value = newIndex
+        val userEmail = email.value
+        sharedPrefs.edit().apply {
+            putInt("avatar_index", newIndex)
+            if (userEmail.isNotEmpty()) {
+                putInt("avatar_index_$userEmail", newIndex)
+            }
+            apply()
+        }
     }
 
     fun updateProfile(name: String, userAge: Int, userGender: String, goal: String) {

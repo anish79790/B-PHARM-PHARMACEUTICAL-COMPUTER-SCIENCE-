@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -98,6 +99,7 @@ fun PharmaSenseApp(viewModel: PharmaViewModel) {
         ) {
             AnimatedContent(
                 targetState = currentTab,
+                modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
                     fadeIn() togetherWith fadeOut()
                 },
@@ -891,6 +893,7 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
                 
                 Box(
                     modifier = Modifier
+                        .align(Alignment.Center)
                         .offset(x = offsetXDp, y = offsetYDp)
                         .size(if (isSelected) 56.dp else 44.dp)
                         .background(
@@ -1219,7 +1222,10 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
                         }
                     }
                 } else {
-                    // level 1: Main Category Overview & Treatment options
+                    // level 1: Main Category Overview (Polished Infographic Panel with zero text clutter)
+                    val subclasses = MedicalCatalog.categorySubclasses[activeItem.first] ?: emptyList()
+                    val totalDrugs = subclasses.sumOf { it.commonDrugs.size }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1227,34 +1233,43 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                                    .size(38.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(activeEmojis.first, fontSize = 15.sp)
+                                Text(activeEmojis.first, fontSize = 18.sp)
                             }
-                            Text(
-                                text = activeItem.first,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Column {
+                                Text(
+                                    text = activeItem.first,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "THERAPEUTIC SPECIALTY",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            // Arrow step backward
+                        // Node Nav Arrows
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             IconButton(
                                 onClick = {
                                     activeIndex = (activeIndex - 1 + categories.size) % categories.size
                                     isAutoRotating = false
                                 },
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), CircleShape)
                             ) {
                                 Icon(
                                     Icons.Default.KeyboardArrowLeft,
@@ -1264,13 +1279,14 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
                                 )
                             }
 
-                            // Arrow step forward
                             IconButton(
                                 onClick = {
                                     activeIndex = (activeIndex + 1) % categories.size
                                     isAutoRotating = false
                                 },
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), CircleShape)
                             ) {
                                 Icon(
                                     Icons.Default.KeyboardArrowRight,
@@ -1282,131 +1298,128 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
                         }
                     }
 
-                    Text(
-                        text = activeItem.second,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
-                    )
-
-                    // Render matching connection pathways
-                    val relatedIdx = relatedIndices[activeIndex] ?: -1
-                    if (relatedIdx != -1) {
-                        val relCategory = categories[relatedIdx]
-                        Row(
+                    // Dynamic Mini Stats Badges (Infographic Style!)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Text(
-                                "🔗 Connected Path:",
+                                text = "🔬 ${subclasses.size} Drug Classes",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "💊 ${totalDrugs} Core Formulations",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.secondary
                             )
-                            Text(
-                                text = "${activeItem.first} matches therapeutic connections with ${relCategory.first}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
                         }
                     }
 
-                    // Render matching subclasses (Treatment classes list)
-                    val subclasses = MedicalCatalog.categorySubclasses[activeItem.first] ?: emptyList()
-                    if (subclasses.isNotEmpty()) {
-                        Text(
-                            text = "🩺 Medical Treatment Classes:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+                    // Short, crisp clinical summary
+                    Text(
+                        text = activeItem.second,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
 
+                    // Therapeutic Focus Areas (Horizontal tag chips instead of massive vertical card lists!)
+                    if (subclasses.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            subclasses.forEach { subclass ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selectedSubclass = subclass },
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                ) {
-                                    Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "Therapeutic Focus Areas:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 0.5.sp
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                subclasses.forEach { subclass ->
+                                    Surface(
+                                        onClick = { selectedSubclass = subclass },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                        modifier = Modifier.padding(bottom = 2.dp)
+                                    ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
+                                            Text("🔍", fontSize = 11.sp)
                                             Text(
                                                 text = subclass.name,
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Default.KeyboardArrowRight,
-                                                contentDescription = "View Subclass Drugs",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(16.dp)
+                                                color = MaterialTheme.colorScheme.primary
                                             )
                                         }
-                                        Text(
-                                            text = subclass.hindiName,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.secondary
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = subclass.description,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                             }
                         }
                     }
 
-                    Row(
+                    // Single clean action button & dynamic assistant hook
+                    Column(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Search action
                         Button(
                             onClick = {
                                 viewModel.currentTab.value = "Search"
                                 viewModel.onSearchQueryChanged(activeItem.first)
                             },
-                            modifier = Modifier.weight(1.1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("View Care", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Search Care Guidelines ➡️", fontWeight = FontWeight.Black)
                         }
 
-                        // Chat/Ask AI advice context card
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 viewModel.currentTab.value = "AI Chat"
-                                viewModel.chatInput.value = "Provide a concise overview of typical care guidelines, key drug classes, and basic self-management advice for the ${activeItem.first} category (${activeItem.second})."
-                            },
-                            modifier = Modifier.weight(0.9f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                                viewModel.chatInput.value = "Tell me about typical medical management, drug classes, and lifestyle guidelines for ${activeItem.first}."
+                            }
                         ) {
-                            Text("Ask Chat AI ⚡", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Consult Clinical AI on ${activeItem.first} ✨",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
@@ -1422,8 +1435,567 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
 fun HomeTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
-    var activeHomeSection by remember { mutableStateOf("Quick Guide") } // Default to "Quick Guide" as requested
+    var activeHomeView by remember { mutableStateOf("dashboard") } // "dashboard", "categories_list", "category_detail"
+    var selectedInfographicCategory by remember { mutableStateOf<InfographicCategory?>(null) }
+    var selectedDrugForDetail by remember { mutableStateOf<InfographicDrug?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showDisclaimer by remember { mutableStateOf(true) }
 
+    if (activeHomeView == "categories_list") {
+        CategoriesListView(
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
+            onBackClick = { activeHomeView = "dashboard" },
+            onCategorySelect = { category ->
+                selectedInfographicCategory = category
+                activeHomeView = "category_detail"
+            },
+            onDrugSelect = { drug -> selectedDrugForDetail = drug }
+        )
+    } else if (activeHomeView == "category_detail") {
+        val currentCategory = selectedInfographicCategory
+        if (currentCategory != null) {
+            CategoryDetailView(
+                category = currentCategory,
+                onBackClick = { activeHomeView = "categories_list" },
+                onDrugSelect = { drug -> selectedDrugForDetail = drug }
+            )
+        } else {
+            activeHomeView = "dashboard"
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 1. Dashboard Header with Settings Button (Concise & Premium)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("💊", fontSize = 20.sp)
+                    }
+                    Column {
+                        Text(
+                            text = "PharmaSense",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Clinical Hub",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), CircleShape)
+                        .size(38.dp)
+                        .testTag("settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // 2. Compact Academic Pill Badge
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f), RoundedCornerShape(30.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.School,
+                    contentDescription = "Project Details",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Project: Anish Kumar (Roll: BPH/10041/23)",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // 3. Infographic Core Database Counters
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Drug Count
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("100+", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                        Text("Drugs", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                // Classes Count
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.04f)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("10", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                        Text("Therapies", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                // Offline Local Engine
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.04f)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("100%", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.tertiary)
+                        Text("Offline", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // 4. Interactive 100 Drugs Guide Entry Card (Visual, Short Text)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        searchQuery = ""
+                        activeHomeView = "categories_list"
+                    }
+                    .border(
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                        RoundedCornerShape(16.dp)
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.secondary
+                                    )
+                                ),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = "Book",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "📖 100 Drugs Handbook",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Indications, Side-Effects & Generic Alternatives",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowRight,
+                        contentDescription = "Go",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // 5. Quick Search Card (Compact)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            viewModel.currentTab.value = "Search"
+                        }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Search diseases, drug class, symptoms...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            // 6. Popular Categories Toggle + Orbital Wheel / Grid
+            var viewAsOrbit by remember { mutableStateOf(true) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Popular Categories",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                
+                TextButton(
+                    onClick = { viewAsOrbit = !viewAsOrbit },
+                    modifier = Modifier.testTag("categories_view_toggle")
+                ) {
+                    Text(
+                        text = if (viewAsOrbit) "View List 📋" else "Interactive Orbit ⚛️",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
+            if (viewAsOrbit) {
+                RadialCategoryOrbitalWheel(viewModel = viewModel)
+            } else {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(MedicalCatalog.categories) { (cat, desc) ->
+                        val icon = when (cat) {
+                            "Cardiovascular" -> Icons.Default.Favorite
+                            "Respiratory" -> Icons.Default.Info
+                            "Gastrointestinal" -> Icons.Default.Refresh
+                            "Infectious Diseases" -> Icons.Default.Warning
+                            "Endocrine" -> Icons.Default.Settings
+                            else -> Icons.Default.Info
+                        }
+                        Card(
+                            modifier = Modifier
+                                .width(150.dp)
+                                .clickable {
+                                    viewModel.currentTab.value = "Search"
+                                    viewModel.onSearchQueryChanged(cat)
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                }
+                                Text(cat, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(desc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 7. Emergency Triage Shortcut (Compact & Premium, Alert Pill)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, DangerAlertRed.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = DangerAlertRed.copy(alpha = 0.03f)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(DangerAlertRed.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationImportant,
+                                    contentDescription = "Alert",
+                                    tint = DangerAlertRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Text(
+                                text = "Emergency Triage",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = DangerAlertRed
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .background(DangerAlertRed, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "CRITICAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Instant clinical safety evaluation for chest pain, sudden breathlessness, or acute symptoms.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.currentTab.value = "Reports"
+                            viewModel.symptomInput.value = "Chest pain, breathlessness"
+                            viewModel.analyzeSymptoms()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerAlertRed),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .testTag("triage_eval_btn")
+                    ) {
+                        Text("Trigger Clinical Assessment ⚡", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            // Bottom Disclaimer Card (Dismissible and Solid Surface to block dot background overlaps)
+            if (showDisclaimer) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("🛡️", fontSize = 20.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "PharmaSense AI is an educational smart pharmacy information companion. Always consult clinical practitioners for personal treatment plans.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 16.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = { showDisclaimer = false },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } // Close Column
+    } // Close else block
+
+    // Interactive Detail Dialog for Home Tab Handbook click events
+    selectedDrugForDetail?.let { drug ->
+        AlertDialog(
+            onDismissRequest = { selectedDrugForDetail = null },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${drug.number}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = drug.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Reference Monograph",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column {
+                        Text("🔬 Clinical Indication / Uses", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.uses, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Column {
+                        Text("⚠️ Side Effects", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = DangerAlertRed)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.sideEffects, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Column {
+                        Text("💡 Safe Use Precautions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.precautions, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("💸 Cost Savings / Substitutes", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(drug.alternativeBrand, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        selectedDrugForDetail = null
+                        viewModel.currentTab.value = "AI Chat"
+                        viewModel.chatInput.value = "Provide comprehensive information about ${drug.name}: indications, standard pediatric and adult dosing, mechanism of action, complete list of contraindications, and general patient counseling notes."
+                    }
+                ) {
+                    Text("Ask Chat AI ⚡")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedDrugForDetail = null }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+}
+
+// --- 1.5 COMMON DRUGS QUICK GUIDE NAVIGATION VIEWS ---
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoriesListView(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onBackClick: () -> Unit,
+    onCategorySelect: (InfographicCategory) -> Unit,
+    onDrugSelect: (InfographicDrug) -> Unit
+) {
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1431,654 +2003,610 @@ fun HomeTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Dashboard Header with Settings Button
+        // Header with Back Button
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (activeHomeSection == "Quick Guide") "Quick Guide" else "PharmaSense Dashboard",
+                    text = "100 Drugs Guide",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (activeHomeSection == "Quick Guide") "100 Common Medications, Uses & Side Effects" else "Your personalized medication & diagnostic companion",
+                    text = "Select a therapeutic class",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier.testTag("settings_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
         }
 
-        // Custom Selector Pills to toggle between Quick Guide and Dashboard Tools
-        Row(
+        // Search Bar inside Infographic
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth().testTag("drugs_guide_search"),
+            placeholder = { Text("Search 100 drugs, uses, or side effects...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                    }
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            )
+        )
+
+        // Title Plate: Styled like the cute cloud-ribbon banner in screenshot
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (activeHomeSection == "Quick Guide") MaterialTheme.colorScheme.primary else Color.Transparent
-                    )
-                    .clickable { activeHomeSection = "Quick Guide" }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "📖 100 Drugs Guide",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (activeHomeSection == "Quick Guide") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+                        )
+                    ),
+                    RoundedCornerShape(24.dp)
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (activeHomeSection == "Dashboard") MaterialTheme.colorScheme.primary else Color.Transparent
-                    )
-                    .clickable { activeHomeSection = "Dashboard" }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
+                .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "⚙️ Dashboard Tools",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (activeHomeSection == "Dashboard") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "☁️ 10 THERAPEUTIC CLASSES ☁️",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "10 Essential Drugs per Class • Monograph Reference",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        if (activeHomeSection == "Quick Guide") {
-            CommonDrugsQuickGuideView(viewModel = viewModel)
-        } else {
-            // Academic Credentials Branding Card (Redesigned with Premium Designer Accents)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                        RoundedCornerShape(16.dp)
-                    ),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-            ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Left designer accent stripe
-                Box(
+        if (searchQuery.isBlank()) {
+            // Draw Category Cards as a list
+            CommonDrugsData.categories.forEach { category ->
+                val colorVal = Color(android.graphics.Color.parseColor(category.accentColorHex))
+                Card(
                     modifier = Modifier
-                        .width(6.dp)
-                        .height(84.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.secondary
-                                )
-                            )
-                        )
-                )
-
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        .fillMaxWidth()
+                        .clickable { onCategorySelect(category) }
+                        .border(
+                            BorderStroke(1.5.dp, colorVal.copy(alpha = 0.35f)),
+                            RoundedCornerShape(16.dp)
+                ),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = colorVal.copy(alpha = 0.04f)
+                    )
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Colored Index Circle
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(colorVal, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${category.index}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = category.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "10 essential compounds • Monograph reference",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         Icon(
-                            imageVector = Icons.Default.School,
-                            contentDescription = "Academic",
-                            tint = MaterialTheme.colorScheme.primary,
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Open",
+                            tint = colorVal,
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Pharmaceutical Computer Science Term Project",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Made by: Anish Kumar",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Roll Number: BPH/10041/23",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
             }
-        }
-
-        // Hero Clinical Banner (Redesigned with Premium Linear Gradient and Multi-tone Canvas Vector)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(136.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        )
-                    )
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxHeight().fillMaxWidth(0.7f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "PRO SYSTEM",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "PharmaSense AI",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Smart Medical Advisor Suite",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Scan medications, analyze lab parameters, and consult symptoms.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f)
-                    )
-                }
-                
-                // Beautiful self-drawn capsule on canvas with shiny highlights
-                Canvas(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 4.dp)
-                ) {
-                    val halfWidth = size.width / 2
-                    val halfHeight = size.height / 2
-                    
-                    // Draw glowing shadow circle
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.15f),
-                        radius = size.width * 0.45f,
-                        center = Offset(halfWidth, halfHeight)
-                    )
-                    // Draw outer ring
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.3f),
-                        radius = size.width * 0.35f,
-                        center = Offset(halfWidth, halfHeight),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                    )
-                    // Draw cross symbol
-                    val armLength = 12.dp.toPx()
-                    val thickness = 4.dp.toPx()
-                    drawRect(
-                        color = Color.White,
-                        topLeft = Offset(halfWidth - thickness / 2, halfHeight - armLength / 2),
-                        size = androidx.compose.ui.geometry.Size(thickness, armLength)
-                    )
-                    drawRect(
-                        color = Color.White,
-                        topLeft = Offset(halfWidth - armLength / 2, halfHeight - thickness / 2),
-                        size = androidx.compose.ui.geometry.Size(armLength, thickness)
-                    )
-                }
-            }
-        }
-
-        // Quick Search Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        viewModel.currentTab.value = "Search"
-                    }
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Search diseases, drug class, symptoms...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-                )
-            }
-        }
-
-        // Popular Disease Categories Grid with Interactive React-inspired Orbital Toggle
-        var viewAsOrbit by remember { mutableStateOf(true) }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Popular Categories",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            
-            TextButton(
-                onClick = { viewAsOrbit = !viewAsOrbit },
-                modifier = Modifier.testTag("categories_view_toggle")
-            ) {
-                Text(
-                    text = if (viewAsOrbit) "View List 📋" else "Interactive Orbit ⚛️",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-        
-        if (viewAsOrbit) {
-            RadialCategoryOrbitalWheel(viewModel = viewModel)
         } else {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp)
-            ) {
-                items(MedicalCatalog.categories) { (cat, desc) ->
-                    val icon = when (cat) {
-                        "Cardiovascular" -> Icons.Default.Favorite
-                        "Respiratory" -> Icons.Default.Info
-                        "Gastrointestinal" -> Icons.Default.Refresh
-                        "Infectious Diseases" -> Icons.Default.Warning
-                        "Endocrine" -> Icons.Default.Settings
-                        else -> Icons.Default.Info
-                    }
-                    Card(
+            // Direct search list across all categories
+            val matchingDrugs = remember(searchQuery) {
+                CommonDrugsData.categories.flatMap { cat ->
+                    cat.drugs.map { drug -> Pair(cat, drug) }
+                }.filter { (_, drug) ->
+                    drug.name.contains(searchQuery, ignoreCase = true) ||
+                    drug.uses.contains(searchQuery, ignoreCase = true) ||
+                    drug.sideEffects.contains(searchQuery, ignoreCase = true)
+                }
+            }
+
+            if (matchingDrugs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No drugs match your query.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                matchingDrugs.forEach { (category, drug) ->
+                    val colorVal = Color(android.graphics.Color.parseColor(category.accentColorHex))
+                    Row(
                         modifier = Modifier
-                            .width(150.dp)
-                            .clickable {
-                                viewModel.currentTab.value = "Search"
-                                viewModel.onSearchQueryChanged(cat)
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, colorVal.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .clickable { onDrugSelect(drug) }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(colorVal.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                                contentAlignment = Alignment.Center
+                            Text(
+                                text = "${drug.number}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Black,
+                                color = colorVal
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Text(
+                                    text = drug.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "(${category.title.substringAfter(" ").substringBefore(" (")})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorVal,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                            Text(cat, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(desc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Uses: ${drug.uses}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Side-Effects: ${drug.sideEffects}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DangerAlertRed.copy(alpha = 0.85f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
         }
 
-        // RED FLAG TRIAGE CARD (Highly dynamic health safety guide)
+        // Quick Tips Section (styled exactly like screenshot)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(2.dp, DangerAlertRed.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = DangerAlertRed.copy(alpha = 0.03f)),
-            shape = RoundedCornerShape(12.dp)
+                .border(BorderStroke(1.5.dp, Color(0xFFE0C068)), RoundedCornerShape(16.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFDF5)),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.NotificationImportant,
-                        contentDescription = "Alert",
-                        tint = DangerAlertRed,
-                        modifier = Modifier.size(26.dp)
+                        imageVector = Icons.Default.Lightbulb,
+                        contentDescription = "Quick Tips",
+                        tint = Color(0xFFD4AF37),
+                        modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = "Emergency Triage Guide",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "CLINICAL RESEARCH NOTES",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Black,
-                        color = DangerAlertRed
+                        color = Color(0xFF8B7355),
+                        letterSpacing = 1.sp
                     )
                 }
-                Text(
-                    text = "If you or someone around you experiences severe symptoms like:",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                // Bullet points
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     listOf(
-                        "Sudden, crushing Chest Pain spreading to arm or jaw",
-                        "Acute breathing difficulties or sudden severe wheezing",
-                        "Numbness/weakness on one side of face or body"
-                    ).forEach { symptom ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = DangerAlertRed,
-                                modifier = Modifier.size(16.dp)
+                        "Always identify active ingredients & exact salt concentrations.",
+                        "Evaluate clinical indications against professional textbooks.",
+                        "Note critical side-effects & contraindications.",
+                        "Document cost-saving generic substitutions for project analysis.",
+                        "Cross-verify molecular drug interactions on-device."
+                    ).forEach { tip ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "•",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8B7355)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(symptom, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                            Text(
+                                text = tip,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF5D4037),
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
-                
-                Button(
-                    onClick = {
-                        viewModel.currentTab.value = "Reports" // Redirect directly to safety evaluation
-                        viewModel.symptomInput.value = "Chest pain, breathlessness"
-                        viewModel.analyzeSymptoms()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerAlertRed),
-                    modifier = Modifier.fillMaxWidth().testTag("triage_eval_btn"),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Trigger Quick Triage Assessment", fontWeight = FontWeight.Bold, color = Color.White)
-                }
             }
         }
+    }
+}
 
-        // Who Can Use / About Screen Guide
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryDetailView(
+    category: InfographicCategory,
+    onBackClick: () -> Unit,
+    onDrugSelect: (InfographicDrug) -> Unit
+) {
+    val colorVal = Color(android.graphics.Color.parseColor(category.accentColorHex))
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Header with Back Button
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
             ) {
-                Text(
-                    text = "Who Can Use This App?",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = colorVal
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("👨‍🎓", fontSize = 24.sp)
-                    Column {
-                        Text("Students & Traineers", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Text("Perfect for offline learning, chemical categories checks, and quick drug profile reference.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("👨‍⚕️", fontSize = 24.sp)
-                    Column {
-                        Text("Pharmacy Professionals", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Text("Validate dosage classes and rapid dual-drug interactions lookup in seconds.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("🏥", fontSize = 24.sp)
-                    Column {
-                        Text("General Public", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Text("Decipher your quantitative diagnostic lab results and research healthier habits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = category.title.substringAfter(" "),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = colorVal
+                )
+                Text(
+                    text = "Therapeutic Class ${category.index} of 10",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
-        // Interactive User Manual Card
-        var selectedManualSection by remember { mutableStateOf("Overview") }
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+        // mini banner for category
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colorVal.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                .border(1.5.dp, colorVal.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                .padding(16.dp)
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("📖", fontSize = 24.sp)
-                    Column {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(colorVal, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "Interactive User Manual",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Learn how to use every feature of PharmaSense AI",
+                            text = "${category.index}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Text(
+                        text = "CLINICAL RESEARCH COMPLIANCE",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = colorVal
+                    )
+                }
+                Text(
+                    text = "Contains 10 standard medications, therapeutic applications, primary side-effects, and cost-saving generic alternatives.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // List of 10 Drugs in Category
+        category.drugs.forEach { drug ->
+            ExpandableDrugCard(
+                drug = drug,
+                colorVal = colorVal,
+                onDrugSelect = onDrugSelect
+            )
+        }
+    }
+}
+
+@Composable
+fun ExpandableDrugCard(
+    drug: InfographicDrug,
+    colorVal: Color,
+    onDrugSelect: (InfographicDrug) -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .clickable { isExpanded = !isExpanded }
+            .border(
+                width = if (isExpanded) 1.5.dp else 1.dp,
+                color = if (isExpanded) colorVal else colorVal.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpanded) colorVal.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Rounded Index bubble
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(colorVal.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${drug.number}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Black,
+                        color = colorVal
+                    )
+                }
+
+                // Drug and basic info
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = drug.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = colorVal.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    if (!isExpanded) {
+                        Text(
+                            text = "Uses: ${drug.uses}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+            }
 
-                // Sub-tabs inside the manual
-                ScrollableTabRow(
-                    selectedTabIndex = when (selectedManualSection) {
-                        "Overview" -> 0
-                        "Auth" -> 1
-                        "Catalog" -> 2
-                        "Analysis" -> 3
-                        "Interactions" -> 4
-                        "Offline" -> 5
-                        else -> 0
-                    },
-                    containerColor = Color.Transparent,
-                    edgePadding = 0.dp,
-                    divider = {}
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    listOf(
-                        "Overview" to "Overview",
-                        "Auth" to "Real Auth",
-                        "Catalog" to "Drug Search",
-                        "Analysis" to "Lab & Symptoms",
-                        "Interactions" to "Interactions",
-                        "Offline" to "Non-AI Engine"
-                    ).forEach { (secId, secTitle) ->
-                        Tab(
-                            selected = selectedManualSection == secId,
-                            onClick = { selectedManualSection = secId }
-                        ) {
+                    HorizontalDivider(color = colorVal.copy(alpha = 0.15f))
+                    
+                    // Uses Section
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("🔬", fontSize = 14.sp)
                             Text(
-                                text = secTitle,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selectedManualSection == secId) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedManualSection == secId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                "Clinical Uses:", 
+                                style = MaterialTheme.typography.labelSmall, 
+                                fontWeight = FontWeight.Bold, 
+                                color = colorVal
+                            )
+                        }
+                        Text(
+                            text = drug.uses, 
+                            style = MaterialTheme.typography.bodySmall, 
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 22.dp, top = 2.dp)
+                        )
+                    }
+
+                    // Side Effects Section
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("⚠️", fontSize = 14.sp)
+                            Text(
+                                "Side-Effects:", 
+                                style = MaterialTheme.typography.labelSmall, 
+                                fontWeight = FontWeight.Bold, 
+                                color = DangerAlertRed
+                            )
+                        }
+                        Text(
+                            text = drug.sideEffects, 
+                            style = MaterialTheme.typography.bodySmall, 
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 22.dp, top = 2.dp)
+                        )
+                    }
+
+                    // Precautions Section
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("💡", fontSize = 14.sp)
+                            Text(
+                                "Safe Use Precautions:", 
+                                style = MaterialTheme.typography.labelSmall, 
+                                fontWeight = FontWeight.Bold, 
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                        Text(
+                            text = drug.precautions, 
+                            style = MaterialTheme.typography.bodySmall, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 22.dp, top = 2.dp)
+                        )
+                    }
+
+                    // Branded Generic / Common Substitutes Section
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("💸", fontSize = 14.sp)
+                                Text(
+                                    "Common Indian Brands & Savings:", 
+                                    style = MaterialTheme.typography.labelSmall, 
+                                    fontWeight = FontWeight.Black, 
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = drug.alternativeBrand, 
+                                style = MaterialTheme.typography.bodySmall, 
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(start = 22.dp)
                             )
                         }
                     }
-                }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    when (selectedManualSection) {
-                        "Overview" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("App Overview", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "PharmaSense AI is an advanced offline-first clinical helper and pharmaceutical informatics catalog. It provides molecular insights, drug-drug interaction alerts, and smart diagnostic health recommendations based on lab inputs and symptoms.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Key Features:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                BulletItem("🔐 Real secure authentication with device-encrypted databases.")
-                                BulletItem("🔍 Deep chemical indexing & high-quality generic recommendations.")
-                                BulletItem("📊 Lab blood report parser and emergency triage assistance.")
-                                BulletItem("🧪 Multi-medication synergy and drug interaction checker.")
-                                BulletItem("💬 On-device clinical AI advisor for health goals and diet.")
-                            }
+                    // Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { onDrugSelect(drug) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, colorVal)
+                        ) {
+                            Text("Full Monograph ➡️", color = colorVal, fontSize = 11.sp, maxLines = 1)
                         }
-                        "Auth" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Secure Profile Authentication", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "Your medical data is sensitive. The Profile tab uses real local secure cryptographic hashing to register and sign in users locally on the device.",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                StepItem(1, "Go to the Profile tab on the bottom bar.")
-                                StepItem(2, "Toggle to Register Mode, enter your Email and a secure Password.")
-                                StepItem(3, "Set your personal Age, Gender, and principal Health Goal.")
-                                StepItem(4, "Sign in to activate your Personal Health Dashboard, track medicine expenses, and analyze tailored clinical diet plans.")
-                            }
-                        }
-                        "Catalog" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Medical Catalog & Molecular Search", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "Allows searching for thousands of drug profiles. It renders structural categories, indications, dosing rules, and lists corresponding low-cost high-quality generic options.",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                StepItem(1, "Navigate to the Search tab or click search on the Home page.")
-                                StepItem(2, "Type keywords like 'Diabetes', 'Metformin', or 'Gastrology'.")
-                                StepItem(3, "Select any drug to view details: Standard dosage, brand prices vs generic equivalents, and molecular structural diagrams.")
-                            }
-                        }
-                        "Analysis" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Report Analyzer & Triage Assessment", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "A comprehensive engine containing a Lab Report Analyzer, Symptom Triage, and a Label Scanner to safely check ingredients.",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                BulletItem("📊 Lab Reports: Enter diagnostic quantitative results (Hemoglobin, WBC, Platelets, Glucose, Blood Pressure). It stores records and outputs clinical ranges (Normal / Low / High).")
-                                BulletItem("🌡️ Symptom Triage: Input current symptoms. The algorithm categorizes priority risk and tells you when to seek immediate medical intervention.")
-                                BulletItem("📷 Ingredient Scanner: Simulated camera labels scanner to extract medicine structures and match with cheaper alternatives instantly.")
-                            }
-                        }
-                        "Interactions" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Multi-Drug Synergy & Interaction Analyzer", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "Enables patients and practitioners to run complex checks for absorption blocks, dangerous overlapping mechanisms, or adverse reactions when taking multiple drugs simultaneously.",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                StepItem(1, "Go to the Interactions tab.")
-                                StepItem(2, "Select your first medicine (e.g., Aspirin or Metformin).")
-                                StepItem(3, "Select your second medicine (e.g., Warfarin or Ibuprofen).")
-                                StepItem(4, "Click 'Analyze Interlocking Synergy' to get a detailed clinical rating (Severe Conflict, Moderate Warning, or Safe Synergism).")
-                            }
-                        }
-                        "Offline" -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Offline (Non-AI) Algorithmic Features", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "PharmaSense AI is engineered to function entirely offline without internet or AI servers. The following key options run strictly via pre-defined local algorithms, schemas, and cryptographic structures:",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                BulletItem("🔐 Cryptographic Local Auth: Registers and signs in user profiles locally using standard SHA-256 password hashing safely on-device.")
-                                BulletItem("🔍 Disease & Molecular Catalog: Deep offline index of medical categories, clinical indications, dosages, and high-quality generic alternative substitutions.")
-                                BulletItem("📊 Lab Analyzer: Checks exact values for Hemoglobin, WBC, Platelets, Glucose, and Blood Pressure against medical benchmarks to categorize levels (Normal, High, Low) instantly.")
-                                BulletItem("🌡️ Symptom Triage: Evaluates clinical symptoms (e.g., fever, chest pain, rash) against a deterministic emergency lookup table to highlight critical red flags.")
-                                BulletItem("🧪 Multi-Drug Interaction Grid: Employs a local matrices grid to verify known cross-drug overlapping actions (e.g., Ibuprofen + Aspirin) completely on-device.")
-                                BulletItem("💰 Expense Tracker: Log purchases and view budget stats saved securely in the device's local Room SQLite Database.")
-                            }
+
+                        Button(
+                            onClick = { onDrugSelect(drug) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colorVal)
+                        ) {
+                            Text("Consult AI ✨", fontSize = 11.sp, maxLines = 1)
                         }
                     }
                 }
             }
         }
-
-        } // Close the else block of activeHomeSection switcher
-
-        // Bottom Disclaimer
-        Text(
-            text = "PharmaSense AI is an educational smart pharmacy information companion. Always consult clinical practitioners for personal treatment plans.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp)
-        )
     }
 }
 
@@ -2634,13 +3162,18 @@ fun SearchTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
                                     Column(modifier = Modifier.padding(14.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(disease.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = disease.name,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.weight(1f)
+                                            )
                                             SuggestionChip(
                                                 onClick = {},
-                                                label = { Text(disease.category) },
+                                                label = { Text(disease.category, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                                 colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
                                             )
                                         }
@@ -2674,15 +3207,23 @@ fun SearchTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
                                     Column(modifier = Modifier.padding(14.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(drug.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                            Text(
+                                                text = drug.name,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.weight(1f)
+                                            )
                                             Text(
                                                 text = drug.drugClass.split(" ").first(),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(4.dp))
@@ -4074,6 +4615,179 @@ fun PaddingRowInsideChat(q: String) {
     }
 }
 
+data class AvatarPreset(
+    val id: Int,
+    val name: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val gradient: List<Color>,
+    val description: String,
+    val emoji: String
+)
+
+val AVATAR_PRESETS = listOf(
+    AvatarPreset(0, "Default Care", Icons.Default.Person, listOf(Color(0xFF6366F1), Color(0xFF4F46E5)), "Primary Medical Advisor", "🩺"),
+    AvatarPreset(1, "Heart Guardian", Icons.Default.Favorite, listOf(Color(0xFFEC4899), Color(0xFFD946EF)), "Cardiovascular Health", "❤️"),
+    AvatarPreset(2, "Mind Specialist", Icons.Default.Psychology, listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)), "Neurology & Mental Balance", "🧠"),
+    AvatarPreset(3, "Clinical Pharmacist", Icons.Default.LocalHospital, listOf(Color(0xFF10B981), Color(0xFF059669)), "Pharmacology Expert", "💊"),
+    AvatarPreset(4, "Preventative Shield", Icons.Default.Shield, listOf(Color(0xFFF59E0B), Color(0xFFD97706)), "Immune & Defense Safeguard", "🛡️"),
+    AvatarPreset(5, "Wellness Coach", Icons.Default.SelfImprovement, listOf(Color(0xFF06B6D4), Color(0xFF0891B2)), "Holistic Health Guide", "🧘"),
+    AvatarPreset(6, "Pediatric Care", Icons.Default.Face, listOf(Color(0xFFF43F5E), Color(0xFFE11D48)), "Family & Pediatric Health", "👶"),
+    AvatarPreset(7, "Therapeutic Specialist", Icons.Default.Healing, listOf(Color(0xFF14B8A6), Color(0xFF0D9488)), "Recovery & Rehab Specialist", "🩹")
+)
+
+@Composable
+fun ProfileAvatar(
+    avatarIndex: Int,
+    fullName: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 50.dp,
+    onClick: (() -> Unit)? = null
+) {
+    val preset = AVATAR_PRESETS.getOrElse(avatarIndex) { AVATAR_PRESETS[0] }
+    val avatarModifier = modifier
+        .size(size)
+        .clip(CircleShape)
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    
+    Box(
+        modifier = avatarModifier
+            .background(Brush.linearGradient(preset.gradient)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (avatarIndex == 0) {
+            val initials = fullName.trim().split("\\s+".toRegex())
+                .mapNotNull { it.firstOrNull()?.toString()?.uppercase() }
+                .take(2)
+                .joinToString("")
+            
+            Text(
+                text = initials.ifEmpty { "P" },
+                color = Color.White,
+                style = if (size > 60.dp) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black
+            )
+        } else {
+            Icon(
+                imageVector = preset.icon,
+                contentDescription = preset.name,
+                tint = Color.White,
+                modifier = Modifier.size(size * 0.55f)
+            )
+        }
+        
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(size * 0.35f)
+                .background(Color.White, CircleShape)
+                .padding(2.dp)
+                .background(preset.gradient.last(), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = preset.emoji,
+                fontSize = (size.value * 0.18f).sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AvatarSelectionDialog(
+    currentSelectedIndex: Int,
+    fullName: String,
+    onDismiss: () -> Unit,
+    onSelect: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Choose Therapeutic DP",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Personalize your clinical health profile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val chunks = AVATAR_PRESETS.chunked(2)
+                chunks.forEach { rowPresets ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowPresets.forEach { preset ->
+                            val index = preset.id
+                            val isSelected = currentSelectedIndex == index
+                            Card(
+                                onClick = { onSelect(index) },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                ),
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    ProfileAvatar(
+                                        avatarIndex = index,
+                                        fullName = fullName,
+                                        size = 48.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = preset.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = preset.description,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Confirm", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
 // --- PROFILE & AUTHENTICATION DASHBOARD TAB ---
 
 @Composable
@@ -4384,6 +5098,20 @@ fun ProfileDashboardScreen(viewModel: PharmaViewModel, onSettingsClick: () -> Un
     val insightsLoading by viewModel.profileInsightsLoading.collectAsStateWithLifecycle()
 
     var showAddExpenseDialog by remember { mutableStateOf(false) }
+    val avatarIndex by viewModel.avatarIndex.collectAsStateWithLifecycle()
+    var showAvatarSelector by remember { mutableStateOf(false) }
+
+    if (showAvatarSelector) {
+        AvatarSelectionDialog(
+            currentSelectedIndex = avatarIndex,
+            fullName = fullName,
+            onDismiss = { showAvatarSelector = false },
+            onSelect = { idx ->
+                viewModel.updateAvatarIndex(idx)
+                showAvatarSelector = false
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -4409,30 +5137,42 @@ fun ProfileDashboardScreen(viewModel: PharmaViewModel, onSettingsClick: () -> Un
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = fullName.firstOrNull()?.toString()?.uppercase() ?: "P",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        ProfileAvatar(
+                            avatarIndex = avatarIndex,
+                            fullName = fullName,
+                            size = 56.dp,
+                            onClick = { showAvatarSelector = true }
+                        )
                         Column {
-                            Text(
-                                text = fullName,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.clickable { showAvatarSelector = true }
+                            ) {
+                                Text(
+                                    text = fullName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Avatar",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                             Text(
                                 text = email,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Tap DP to personalize profile 🎨",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { showAvatarSelector = true }
                             )
                         }
                     }
