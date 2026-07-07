@@ -93,11 +93,12 @@ object RetrofitClient {
         prompt: String,
         systemInstruction: String? = null,
         base64Image: String? = null,
-        imageMimeType: String? = "image/jpeg"
+        imageMimeType: String? = "image/jpeg",
+        customApiKey: String? = null
     ): String {
-        val apiKey = BuildConfig.GEMINI_API_KEY
+        val apiKey = if (!customApiKey.isNullOrEmpty()) customApiKey else BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            return "Error: Gemini API Key is missing. Please set it in the AI Studio Secrets panel."
+            return "Error: Gemini API Key is missing. Please set it in the App Settings or the AI Studio Secrets panel."
         }
 
         val parts = mutableListOf<Part>()

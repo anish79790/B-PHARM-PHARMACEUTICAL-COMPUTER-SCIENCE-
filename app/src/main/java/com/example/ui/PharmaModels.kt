@@ -1,5 +1,22 @@
 package com.example.ui
 
+data class CommonDrugInfo(
+    val name: String,
+    val hindiName: String,
+    val indications: String,
+    val standardDose: String,
+    val costPercentSaving: Int,
+    val representativeBrand: String,
+    val genericAlternative: String
+)
+
+data class MedicineSubclass(
+    val name: String,
+    val hindiName: String,
+    val description: String,
+    val commonDrugs: List<CommonDrugInfo>
+)
+
 data class Disease(
     val id: String,
     val name: String,
@@ -24,19 +41,409 @@ data class Drug(
 
 object MedicalCatalog {
     val categories = listOf(
-        "Cardiovascular" to "Heart & Arteries",
-        "Respiratory" to "Lungs & Breathing",
-        "Gastrointestinal" to "Stomach, Acid & Digestion",
-        "Infectious Diseases" to "Bacterial & Viral Infections",
-        "Endocrine" to "Hormones & Diabetes",
-        "Pain Relief" to "Analgesics & Soreness"
+        "Neurology" to "Brain & Neurology",
+        "Gastrology" to "Stomach & Digestion",
+        "Cardiology" to "Heart & Blood Pressure",
+        "Infections & Fungus" to "Antibiotics & Antifungals",
+        "Endocrinology" to "Hormones & Diabetes",
+        "Allergies & Pain" to "Antihistamines & Painkillers"
+    )
+
+    val categorySubclasses = mapOf(
+        "Neurology" to listOf(
+            MedicineSubclass(
+                name = "Antidepressants",
+                hindiName = "Antidepressants (Neurotransmitters Balance)",
+                description = "Used to balance neurotransmitters in the brain for treating clinical depression, anxiety disorders, and chronic panic syndromes.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Fluoxetine",
+                        hindiName = "Fluoxetine (Prozac Generic)",
+                        indications = "Major Depressive Disorder, OCD, Panic Attacks",
+                        standardDose = "20 mg daily in the morning with or without food",
+                        costPercentSaving = 70,
+                        representativeBrand = "Prozac (Abbott)",
+                        genericAlternative = "Fludac (Cadila Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Sertraline",
+                        hindiName = "Sertraline (Zoloft Generic)",
+                        indications = "Depression, Social Anxiety, PTSD",
+                        standardDose = "50 mg once daily, morning or evening",
+                        costPercentSaving = 65,
+                        representativeBrand = "Zoloft (Pfizer)",
+                        genericAlternative = "Sertima (Intas Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Amitriptyline",
+                        hindiName = "Amitriptyline (Tryptomer Generic)",
+                        indications = "Neuropathic chronic pain, Migraine prevention, Insomnia",
+                        standardDose = "10 mg to 25 mg at bedtime to avoid day sleepiness",
+                        costPercentSaving = 75,
+                        representativeBrand = "Elavil (Abbott)",
+                        genericAlternative = "Tryptomer (Wockhardt Ltd)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Anticonvulsants",
+                hindiName = "Anticonvulsants (Seizures & Nerve Pain)",
+                description = "Stabilizes abnormal electrical activity in the brain to treat seizures, epilepsy, and diabetic neuropathic nerve pains.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Gabapentin",
+                        hindiName = "Gabapentin (Neurontin Generic)",
+                        indications = "Postherpetic neuralgia, neuropathic shingles pain, partial seizures",
+                        standardDose = "300 mg three times daily",
+                        costPercentSaving = 60,
+                        representativeBrand = "Neurontin (Pfizer)",
+                        genericAlternative = "Gabapin (Intas Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Carbamazepine",
+                        hindiName = "Carbamazepine (Tegretol Generic)",
+                        indications = "Trigeminal neuralgia, tonic-clonic epilepsy, bipolar mania",
+                        standardDose = "200 mg twice daily with food",
+                        costPercentSaving = 55,
+                        representativeBrand = "Tegretol (Novartis)",
+                        genericAlternative = "Mazetol (Abbott)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Anxiolytics",
+                hindiName = "Anxiolytics (Anxiety & Sleep Aids)",
+                description = "GABA enhancers that act as central nervous system depressants to quickly relieve acute panic, severe anxiety, and insomnia.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Alprazolam",
+                        hindiName = "Alprazolam (Xanax Generic)",
+                        indications = "Generalized Anxiety, severe panic disorders",
+                        standardDose = "0.25 mg to 0.5 mg orally three times daily as prescribed",
+                        costPercentSaving = 50,
+                        representativeBrand = "Xanax (Pfizer)",
+                        genericAlternative = "Alprax (Torrent Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Diazepam",
+                        hindiName = "Diazepam (Valium Generic)",
+                        indications = "Acute anxiety, muscle spasms, alcohol withdrawal symptoms",
+                        standardDose = "2 mg to 10 mg orally 2 to 4 times daily",
+                        costPercentSaving = 68,
+                        representativeBrand = "Valium (Roche)",
+                        genericAlternative = "Calmpose (Ranbaxy/Sun Pharma)"
+                    )
+                )
+            )
+        ),
+        "Gastrology" to listOf(
+            MedicineSubclass(
+                name = "Proton Pump Inhibitors",
+                hindiName = "PPI (Gastric Reflux & Acidity)",
+                description = "Inhibits gastric parietal cell proton pumps to strongly suppress the production of stomach acid, facilitating ulcer healing and preventing acid reflux.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Omeprazole",
+                        hindiName = "Omeprazole (Omez Generic)",
+                        indications = "GERD, heartburn, active duodenal/gastric ulcers",
+                        standardDose = "20 mg to 40 mg once daily, 30 minutes before breakfast",
+                        costPercentSaving = 72,
+                        representativeBrand = "Prilosec (AstraZeneca)",
+                        genericAlternative = "Omez (Dr. Reddy's Laboratories)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Pantoprazole",
+                        hindiName = "Pantoprazole (Pan-40 Generic)",
+                        indications = "Severe erosive esophagitis, hypersecretory acidity conditions",
+                        standardDose = "40 mg once daily, 30-60 minutes before first meal",
+                        costPercentSaving = 64,
+                        representativeBrand = "Protonix (Pfizer)",
+                        genericAlternative = "Pan-40 (Alkem Laboratories)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Antacids",
+                hindiName = "Antacids (Stomach Acid Neutralizer)",
+                description = "Alkaline compounds that chemically neutralize stomach hydrochloric acid instantly on contact to relieve heartburn and indigestion.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Calcium Carbonate",
+                        hindiName = "Calcium Carbonate (Calcimax Generic)",
+                        indications = "Acid indigestion, sour stomach, mild calcium supplement",
+                        standardDose = "500 mg to 1000 mg chewed thoroughly when symptoms arise",
+                        costPercentSaving = 45,
+                        representativeBrand = "Tums (GSK)",
+                        genericAlternative = "Calcimax (Meyer Organics)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Magnesium Hydroxide",
+                        hindiName = "Magnesium Hydroxide (Cremaffin Generic)",
+                        indications = "Constipation (laxative effect), acute stomach acidity",
+                        standardDose = "400 mg per tablet, taken with full glass of water",
+                        costPercentSaving = 50,
+                        representativeBrand = "Milk of Magnesia (Bayer)",
+                        genericAlternative = "Cremaffin (Abbott India)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Antiemetics",
+                hindiName = "Antiemetics (Nausea & Vomiting Relief)",
+                description = "Blocks serotonin or dopamine signals in the brain and gut that trigger the vomiting reflex, providing relief from motion sickness, nausea, or gastroenteritis.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Ondansetron",
+                        hindiName = "Ondansetron (Ondem Generic)",
+                        indications = "Severe vomiting, chemotherapy-induced nausea, motion sickness",
+                        standardDose = "4 mg to 8 mg rapidly disintegrating tablet or oral liquid",
+                        costPercentSaving = 78,
+                        representativeBrand = "Zofran (GSK)",
+                        genericAlternative = "Ondem (Alkem Laboratories)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Domperidone",
+                        hindiName = "Domperidone (Domstal Generic)",
+                        indications = "Nausea, postprandial fullness, gastric bloating",
+                        standardDose = "10 mg up to three times daily, taken before meals",
+                        costPercentSaving = 58,
+                        representativeBrand = "Motilium (Janssen)",
+                        genericAlternative = "Domstal (Torrent Pharmaceuticals)"
+                    )
+                )
+            )
+        ),
+        "Cardiology" to listOf(
+            MedicineSubclass(
+                name = "Beta Blockers",
+                hindiName = "Beta Blockers (Hypertension & Heart Rate)",
+                description = "Blocks adrenaline receptors to reduce heart rate and force of contraction, lowering blood pressure and workload on the heart.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Metoprolol",
+                        hindiName = "Metoprolol (Metocard Generic)",
+                        indications = "Hypertension, chronic angina pectoris, post-heart attack",
+                        standardDose = "50 mg to 100 mg daily in single or split doses",
+                        costPercentSaving = 62,
+                        representativeBrand = "Lopressor (Novartis)",
+                        genericAlternative = "Metocard (Alembic Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Atenolol",
+                        hindiName = "Atenolol (Aten Generic)",
+                        indications = "Essential high BP, cardiac arrhythmias, early post-MI",
+                        standardDose = "25 mg to 50 mg once daily orally",
+                        costPercentSaving = 71,
+                        representativeBrand = "Tenormin (AstraZeneca)",
+                        genericAlternative = "Aten (Zydus Cadila)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "ACE Inhibitors",
+                hindiName = "ACE Inhibitors (Vasodilation & BP)",
+                description = "Relaxes arteries and reduces salt retention by blocking the formation of Angiotensin II, a major natural blood-vessel constricting hormone.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Lisinopril",
+                        hindiName = "Lisinopril (Listril Generic)",
+                        indications = "Hypertension, diabetic nephropathy, heart failure adjunct",
+                        standardDose = "10 mg once daily, max up to 40 mg daily",
+                        costPercentSaving = 68,
+                        representativeBrand = "Zestril (AstraZeneca)",
+                        genericAlternative = "Listril (Torrent Pharmaceuticals)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Enalapril",
+                        hindiName = "Enalapril (Enam Generic)",
+                        indications = "Hypertension, asymptomatic left ventricular dysfunction",
+                        standardDose = "5 mg once daily, adjusted based on response",
+                        costPercentSaving = 74,
+                        representativeBrand = "Vasotec (Merck)",
+                        genericAlternative = "Enam (Dr. Reddy's Laboratories)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Calcium Channel Blockers",
+                hindiName = "Calcium Channel Blockers (Vessel Relaxation)",
+                description = "Inhibits calcium ions from entering heart and vascular smooth muscle cells, relaxing blood vessels and easing blood flow.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Amlodipine",
+                        hindiName = "Amlodipine (Amlokind Generic)",
+                        indications = "High blood pressure, chronic stable chest angina",
+                        standardDose = "5 mg to 10 mg once daily",
+                        costPercentSaving = 80,
+                        representativeBrand = "Norvasc (Pfizer)",
+                        genericAlternative = "Amlokind (Mankind Pharma)"
+                    )
+                )
+            )
+        ),
+        "Infections & Fungus" to listOf(
+            MedicineSubclass(
+                name = "Antibiotics",
+                hindiName = "Antibiotics (Bacterial Infection)",
+                description = "Inhibits bacterial cell wall synthesis or protein assembly, stopping bacterial growth to cure systemic infections.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Amoxicillin",
+                        hindiName = "Amoxicillin (Mox Generic)",
+                        indications = "Throat, ear, urinary tract, and dental bacterial infections",
+                        standardDose = "500 mg three times daily for 5-7 days",
+                        costPercentSaving = 55,
+                        representativeBrand = "Amoxil (GSK)",
+                        genericAlternative = "Mox (Sun Pharmaceutical Industries)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Azithromycin",
+                        hindiName = "Azithromycin (Azee Generic)",
+                        indications = "Strep throat, community pneumonia, skin infections, typhoid",
+                        standardDose = "500 mg once daily for 3 days on empty stomach",
+                        costPercentSaving = 60,
+                        representativeBrand = "Zithromax (Pfizer)",
+                        genericAlternative = "Azee (Cipla Ltd)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Ciprofloxacin",
+                        hindiName = "Ciprofloxacin (Ciplox Generic)",
+                        indications = "Urinary tract infections (UTIs), typhoid fever, infectious diarrhea",
+                        standardDose = "500 mg twice daily with plenty of fluids",
+                        costPercentSaving = 65,
+                        representativeBrand = "Cipro (Bayer)",
+                        genericAlternative = "Ciplox (Cipla Ltd)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Antifungals",
+                hindiName = "Antifungals (Fungal Infection)",
+                description = "Disrupts the synthesis of fungal cell membranes, eradicating ringworm, dandruff, nail, and candidiasis infections.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Fluconazole",
+                        hindiName = "Fluconazole (Forcan Generic)",
+                        indications = "Vaginal yeast infections, oral thrush, ringworm, nail fungus",
+                        standardDose = "150 mg single oral capsule, or as directed for chronic cases",
+                        costPercentSaving = 70,
+                        representativeBrand = "Diflucan (Pfizer)",
+                        genericAlternative = "Forcan (Cipla Ltd)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Itraconazole",
+                        hindiName = "Itraconazole (Canditral Generic)",
+                        indications = "Severe fungal infections of nails, skin, or systemic fungal issues",
+                        standardDose = "100 mg to 200 mg daily with a full meal",
+                        costPercentSaving = 50,
+                        representativeBrand = "Sporanox (Janssen)",
+                        genericAlternative = "Canditral (Glenmark Pharmaceuticals)"
+                    )
+                )
+            )
+        ),
+        "Endocrinology" to listOf(
+            MedicineSubclass(
+                name = "Antidiabetics",
+                hindiName = "Antidiabetics (Blood Glucose Regulator)",
+                description = "Improves peripheral insulin sensitivity and shuts down liver glucose output to regulate blood sugar levels.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Metformin",
+                        hindiName = "Metformin (Glycomet Generic)",
+                        indications = "Type 2 Diabetes mellitus, insulin resistance syndrome, PCOS",
+                        standardDose = "500 mg to 1000 mg twice daily with food",
+                        costPercentSaving = 75,
+                        representativeBrand = "Glucophage (Merck)",
+                        genericAlternative = "Glycomet (USV Private Ltd)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Glimepiride",
+                        hindiName = "Glimepiride (Glimy Generic)",
+                        indications = "Type 2 Diabetes blood glucose control",
+                        standardDose = "1 mg to 2 mg once daily with the first main meal",
+                        costPercentSaving = 65,
+                        representativeBrand = "Amaryl (Sanofi)",
+                        genericAlternative = "Glimy (Alkem Laboratories)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "Thyroid Hormones",
+                hindiName = "Thyroid Hormones (Hypothyroidism Supplement)",
+                description = "Synthetic thyroid hormone replacement therapy used to treat underactive thyroid gland (hypothyroidism).",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Levothyroxine",
+                        hindiName = "Levothyroxine (Thyronorm Generic)",
+                        indications = "Hypothyroidism, goiter, thyroid cancer suppression",
+                        standardDose = "25 mcg to 100 mcg once daily first thing in morning empty stomach",
+                        costPercentSaving = 58,
+                        representativeBrand = "Synthroid (AbbVie)",
+                        genericAlternative = "Thyronorm (Abbott India)"
+                    )
+                )
+            )
+        ),
+        "Allergies & Pain" to listOf(
+            MedicineSubclass(
+                name = "Antihistamines",
+                hindiName = "Antihistamines (Allergy Relief)",
+                description = "Blocks histamine receptors to prevent inflammatory responses such as sneezing, watery eyes, hives, and runny nose.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Cetirizine",
+                        hindiName = "Cetirizine (Cetzine Generic)",
+                        indications = "Allergic rhinitis, hives, hay fever, skin itching",
+                        standardDose = "10 mg once daily in the evening (may cause mild drowsiness)",
+                        costPercentSaving = 82,
+                        representativeBrand = "Zyrtec (Abbott)",
+                        genericAlternative = "Cetzine (GlaxoSmithKline India)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Levocetirizine",
+                        hindiName = "Levocetirizine (1-AL Generic)",
+                        indications = "Seasonal allergies, chronic hives, itching rashes",
+                        standardDose = "5 mg once daily at bedtime for deep sleep benefit",
+                        costPercentSaving = 75,
+                        representativeBrand = "Xyzal (Sanofi)",
+                        genericAlternative = "1-AL (FDC Ltd)"
+                    )
+                )
+            ),
+            MedicineSubclass(
+                name = "NSAIDs & Painkillers",
+                hindiName = "NSAIDs & Painkillers (Fever & Pain Relief)",
+                description = "Inhibits cyclooxygenase (COX) enzymes to prevent prostaglandin synthesis, relieving pains, fevers, and joint inflammations.",
+                commonDrugs = listOf(
+                    CommonDrugInfo(
+                        name = "Ibuprofen",
+                        hindiName = "Ibuprofen (Ibugesic Generic)",
+                        indications = "Headache, dental pain, arthritis, muscular inflammation",
+                        standardDose = "200 mg to 400 mg every 6 hours with food to avoid stomach distress",
+                        costPercentSaving = 60,
+                        representativeBrand = "Advil (Pfizer)",
+                        genericAlternative = "Ibugesic (Cipla Ltd)"
+                    ),
+                    CommonDrugInfo(
+                        name = "Paracetamol",
+                        hindiName = "Paracetamol (Calpol / Crocin Generic)",
+                        indications = "High fevers, body aches, headaches, post-vaccine aches",
+                        standardDose = "500 mg to 650 mg every 4-6 hours (max 4000 mg daily)",
+                        costPercentSaving = 78,
+                        representativeBrand = "Panadol (GSK)",
+                        genericAlternative = "Calpol (GSK India) or Crocin (GSK)"
+                    )
+                )
+            )
+        )
     )
 
     val diseases = listOf(
         Disease(
             id = "disease_diabetes",
             name = "Diabetes Mellitus (Type 2)",
-            category = "Endocrine",
+            category = "Endocrinology",
             overview = "A chronic metabolic condition characterized by high blood sugar (glucose) levels, which results from the body's inability to produce or effectively use insulin. It can lead to long-term complications including neuropathy, retinopathy, and cardiovascular disease.",
             symptoms = listOf(
                 "Frequent urination (Polyuria)",
@@ -71,7 +478,7 @@ object MedicalCatalog {
         Disease(
             id = "disease_influenza",
             name = "Influenza (Flu)",
-            category = "Infectious Diseases",
+            category = "Infections & Fungus",
             overview = "A highly contagious viral infection that attacks the respiratory system, including the nose, throat, and lungs. Unlike common colds, influenza hits suddenly and causes much more severe systemic symptoms like high fevers and muscle body aches.",
             symptoms = listOf(
                 "Sudden onset of high fever (100.4°F or higher)",
@@ -100,7 +507,7 @@ object MedicalCatalog {
         Disease(
             id = "disease_hypertension",
             name = "Hypertension (High Blood Pressure)",
-            category = "Cardiovascular",
+            category = "Cardiology",
             overview = "A chronic medical condition where the long-term force of blood against the artery walls is consistently elevated. Often referred to as the 'Silent Killer' because it typically exhibits no obvious outward symptoms while gradually damaging blood vessels and organs.",
             symptoms = listOf(
                 "Asymptomatic in most standard cases",
@@ -133,7 +540,7 @@ object MedicalCatalog {
         Disease(
             id = "disease_gerd",
             name = "GERD (Acid Reflux)",
-            category = "Gastrointestinal",
+            category = "Gastrology",
             overview = "Gastroesophageal Reflux Disease (GERD) is a digestive disorder where acidic contents from the stomach back up repeatedly into the tube connecting your mouth and stomach (esophagus), irritating its sensitive lining.",
             symptoms = listOf(
                 "Heartburn (burning sensation in chest after eating)",
@@ -164,7 +571,7 @@ object MedicalCatalog {
         Disease(
             id = "disease_asthma",
             name = "Asthma (Bronchial)",
-            category = "Respiratory",
+            category = "Allergies & Pain",
             overview = "A respiratory condition in which the airways periodically swell, narrow, and secrete excess mucus. This makes air passage difficult and triggers breathlessness, wheezing sounds when exhaling, and troublesome coughing.",
             symptoms = listOf(
                 "Shortness of breath (breathlessness)",

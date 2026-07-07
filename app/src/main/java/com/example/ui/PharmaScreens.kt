@@ -1,5 +1,17 @@
 package com.example.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import android.util.Base64
+import android.provider.MediaStore
+import android.graphics.ImageDecoder
+import android.os.Build
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -37,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.BookmarkedItem
 import com.example.data.MedicalReport
 import com.example.ui.theme.*
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +58,7 @@ fun PharmaSenseApp(viewModel: PharmaViewModel) {
     val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -58,7 +72,8 @@ fun PharmaSenseApp(viewModel: PharmaViewModel) {
                     Triple("Search", Icons.Filled.Search, "search_tab"),
                     Triple("Reports", Icons.Filled.Assignment, "reports_tab"),
                     Triple("Interactions", Icons.Filled.CompareArrows, "interactions_tab"),
-                    Triple("AI Chat", Icons.Filled.QuestionAnswer, "chat_tab")
+                    Triple("AI Chat", Icons.Filled.QuestionAnswer, "chat_tab"),
+                    Triple("Profile", Icons.Filled.Person, "profile_tab")
                 ).forEach { (tabName, icon, tag) ->
                     NavigationBarItem(
                         selected = currentTab == tabName,
@@ -79,6 +94,7 @@ fun PharmaSenseApp(viewModel: PharmaViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
+                .clinicalDotGrid(MaterialTheme.colorScheme.primary)
         ) {
             AnimatedContent(
                 targetState = currentTab,
@@ -88,13 +104,392 @@ fun PharmaSenseApp(viewModel: PharmaViewModel) {
                 label = "TabTransition"
             ) { targetTab ->
                 when (targetTab) {
-                    "Home" -> HomeTabContent(viewModel)
-                    "Search" -> SearchTabContent(viewModel)
-                    "Reports" -> ReportsTabContent(viewModel)
-                    "Interactions" -> InteractionsTabContent(viewModel)
-                    "AI Chat" -> ChatTabContent(viewModel)
-                    else -> HomeTabContent(viewModel)
+                    "Home" -> HomeTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    "Search" -> SearchTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    "Reports" -> ReportsTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    "Interactions" -> InteractionsTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    "AI Chat" -> ChatTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    "Profile" -> ProfileTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
+                    else -> HomeTabContent(viewModel, onSettingsClick = { showSettingsDialog = true })
                 }
+            }
+        }
+    }
+
+    if (showSettingsDialog) {
+        SettingsDialog(viewModel = viewModel, onDismiss = { showSettingsDialog = false })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsDialog(viewModel: PharmaViewModel, onDismiss: () -> Unit) {
+    val viewAsOrbit by viewModel.viewAsOrbit.collectAsStateWithLifecycle()
+    val useAiForLabReports by viewModel.useAiForLabReports.collectAsStateWithLifecycle()
+    val useAiForSymptoms by viewModel.useAiForSymptoms.collectAsStateWithLifecycle()
+    val useAiForInteractions by viewModel.useAiForInteractions.collectAsStateWithLifecycle()
+    val useAiForScanner by viewModel.useAiForScanner.collectAsStateWithLifecycle()
+    val useAiForDashboard by viewModel.useAiForDashboard.collectAsStateWithLifecycle()
+    val customApiKey by viewModel.customApiKey.collectAsStateWithLifecycle()
+
+    var apiKeyInput by remember { mutableStateOf(customApiKey) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "App Settings & Preferences",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // --- SECTION 1: INTERACTIVE ORBIT PREFERENCE ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Interactive Categories Orbit ⚛️",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Display catalog diseases in a revolving orbital wheel instead of a simple scroll list.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = viewAsOrbit,
+                                onCheckedChange = { viewModel.setViewAsOrbit(it) },
+                                modifier = Modifier.testTag("setting_orbit_switch")
+                            )
+                        }
+                    }
+                }
+
+                // --- SECTION 2: AI VS OFFLINE TOGGLES ---
+                Text(
+                    text = "Feature Engine Config (AI vs. Offline)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        // Lab Reports Analyzer
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Lab Reports Analyzer 📊", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Enabled: Gemini Clinical Analysis. Disabled: Local medical ranges scanner.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = useAiForLabReports,
+                                onCheckedChange = { viewModel.setUseAiForLabReports(it) },
+                                modifier = Modifier.testTag("setting_ai_reports_switch")
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Symptom Triage Check
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Symptom Triage Check 🩺", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Enabled: Gemini symptom assistant. Disabled: Local red flags & triage guidelines.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = useAiForSymptoms,
+                                onCheckedChange = { viewModel.setUseAiForSymptoms(it) },
+                                modifier = Modifier.testTag("setting_ai_symptoms_switch")
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Drug Interaction Checker
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Drug Interaction Matrix 💊", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Enabled: Deep AI molecular overlaps. Disabled: Local SQLite interaction table.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = useAiForInteractions,
+                                onCheckedChange = { viewModel.setUseAiForInteractions(it) },
+                                modifier = Modifier.testTag("setting_ai_interactions_switch")
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Label Scanner
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Medicine Container Label Scanner 🔍", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Enabled: AI pharmaceutical label parsing. Disabled: Local molecular database indexing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = useAiForScanner,
+                                onCheckedChange = { viewModel.setUseAiForScanner(it) },
+                                modifier = Modifier.testTag("setting_ai_scanner_switch")
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Dashboard Recommendations
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Dashboard Advice & Discoveries 🥗", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Enabled: Custom AI nutrition charts and news. Disabled: Deterministic offline tables.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = useAiForDashboard,
+                                onCheckedChange = { viewModel.setUseAiForDashboard(it) },
+                                modifier = Modifier.testTag("setting_ai_dashboard_switch")
+                            )
+                        }
+                    }
+                }
+
+                // --- SECTION 3: CUSTOM GEMINI API KEY ---
+                Text(
+                    text = "API Key Configuration",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Provide Your Own Gemini API Key 🔑",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = "By default, this app uses our shared pre-configured key. If you exhaust the shared quota limit, you can easily obtain a free personal key from Google AI Studio and register it below.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("Gemini API Key") },
+                            placeholder = { Text("AIzaSy...") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("custom_api_key_input"),
+                            trailingIcon = {
+                                if (apiKeyInput.isNotEmpty()) {
+                                    IconButton(onClick = { apiKeyInput = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    }
+                                }
+                            }
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {
+                                apiKeyInput = ""
+                                viewModel.setCustomApiKey("")
+                                android.widget.Toast.makeText(context, "API Key cleared. Using default key.", android.widget.Toast.LENGTH_SHORT).show()
+                            }) {
+                                Text("Reset to Default")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.setCustomApiKey(apiKeyInput.trim())
+                                    android.widget.Toast.makeText(context, "Custom API Key saved successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.testTag("save_api_key_button")
+                            ) {
+                                Text("Save Key")
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), modifier = Modifier.padding(vertical = 4.dp))
+
+                        // KEY ACQUISITION GUIDE
+                        Text(
+                            text = "💡 How to copy and register your key:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            StepItem(1, "Click the link button below to open Google AI Studio in your browser.")
+                            StepItem(2, "Log in with any standard Google or Gmail account.")
+                            StepItem(3, "Click the 'Get API Key' button at the top left of the dashboard.")
+                            StepItem(4, "Create a key (or copy an existing one) and copy its alphanumeric code.")
+                            StepItem(5, "Paste the copied key in the text field above and click 'Save Key'.")
+                        }
+
+                        val intentUri = "https://aistudio.google.com/"
+                        Button(
+                            onClick = {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(intentUri))
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("get_api_key_link_button")
+                        ) {
+                            Icon(Icons.Default.Launch, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Get Free Gemini API Key Direct Link 🌐")
+                        }
+                    }
+                }
+
+                // --- SECTION 3.5: USER MANUAL GUIDE ---
+                Text(
+                    text = "App User Manual & Practice Guide",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "📖 Comprehensive User Manual",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        Text(
+                            text = "PharmaSense is designed as a professional computer science research prototype. Learn how to leverage all its diagnostic and exploration modules:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ManualStepItem("1. Home Dashboard & Rotating Orbit ⚛️", "Toggle the 'Interactive Categories Orbit' switch at the top. On the Home tab, a revolving circular orbital grid will appear. Tap on neurology, cardiology, etc. to see their sub-classes. Tap on the center atomic core (⚛️) to play/pause the orbital revolving animation.")
+                            ManualStepItem("2. Diagnostic Suite Sheet Analyzer 📊", "Go to the 'Reports' tab. Enter numerical results for Hb, WBC, Glucose, or Blood Pressure. Tap 'Analyze Lab Report' to compute local reference deviations. If AI Mode is enabled, the results will be routed to Gemini for full generic medication suggestions and clinical summaries.")
+                            ManualStepItem("3. Medical Image Upload 📸", "Inside 'Analyze Reports', tap the 'Select & Load Report' action to upload a medical sheet. The app will securely encode the image and send it to Gemini for optical character recognition and branded alternative suggestions.")
+                            ManualStepItem("4. Symptom Checker & Quick Triage 🩺", "In the 'Symptom Checker' sub-tab, enter symptoms or tap quick selection chips like 'Severe Chest Pain'. The system performs instant red-flags scans and provides triage directions.")
+                            ManualStepItem("5. Drug Interaction Matrix 💊", "Go to the 'Interactions' tab. Search and pick a baseline drug (e.g. Metformin), then check its molecular overlaps and contraindications against other compounds locally or with AI.")
+                            ManualStepItem("6. Personal AI Key Setup 🔑", "If the preloaded free shared quota limit is exhausted, enter your Gemini Key above. The client will immediately route your operations via your own secure, free Google developer channel.")
+                        }
+                    }
+                }
+
+                // --- SECTION 4: APP INFORMATION ("ABOUT") ---
+                Text(
+                    text = "App Architecture & Specifications",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "ℹ️ Tech Stack Specifications",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            BulletItem("Frontend Architecture: Kotlin, Jetpack Compose, Material Design 3 (M3)")
+                            BulletItem("Local Database Engine: SQLite via Android Room ORM")
+                            BulletItem("Concurrency Framework: Kotlin Coroutines & Flow State Flows")
+                            BulletItem("Network Client Stack: Retrofit 2 with OkHttp 4 client")
+                            BulletItem("Data Serialization: kotlinx.serialization library")
+                            BulletItem("Third-Party APIs: Google Gemini Pro / Flash Multimodal AI")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -217,6 +612,28 @@ fun Modifier.glassyGlow(color: Color): Modifier = this.drawBehind {
     )
 }
 
+// Clinical premium dot pattern background drawing
+fun Modifier.clinicalDotGrid(color: Color): Modifier = this.drawBehind {
+    val dotSpacing = 24.dp.toPx()
+    val dotRadius = 1.2.dp.toPx()
+    val width = size.width
+    val height = size.height
+    
+    var x = 0f
+    while (x < width) {
+        var y = 0f
+        while (y < height) {
+            drawCircle(
+                color = color.copy(alpha = 0.04f),
+                radius = dotRadius,
+                center = Offset(x, y)
+            )
+            y += dotSpacing
+        }
+        x += dotSpacing
+    }
+}
+
 // --- 1. HOME TAB ---
 
 @Composable
@@ -224,16 +641,25 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
     var activeIndex by remember { mutableStateOf(0) }
     var angleOffset by remember { mutableStateOf(0f) }
     var isAutoRotating by remember { mutableStateOf(true) }
+
+    var selectedSubclass by remember { mutableStateOf<MedicineSubclass?>(null) }
+    var selectedDrug by remember { mutableStateOf<CommonDrugInfo?>(null) }
+
+    // Reset drill-down state on active index change
+    LaunchedEffect(activeIndex) {
+        selectedSubclass = null
+        selectedDrug = null
+    }
     
     // Connected category indices map (matching similar health contexts from React template!)
     val relatedIndices = remember {
         mapOf(
-            0 to 4, // Cardiovascular <-> Endocrine (Heart <-> Diabetes)
-            1 to 3, // Respiratory <-> Infectious Diseases (Lungs <-> Infections)
-            2 to 5, // Gastrointestinal <-> Pain Relief
-            3 to 1, // Infectious Diseases <-> Respiratory
-            4 to 0, // Endocrine <-> Cardiovascular
-            5 to 2  // Pain Relief <-> Gastrointestinal
+            0 to 4, // Neurology <-> Endocrinology (Brain <-> Hormones)
+            1 to 5, // Gastrology <-> Allergies & Pain (Stomach <-> Pain Relief)
+            2 to 0, // Cardiology <-> Neurology (Heart <-> Brain)
+            3 to 5, // Infections & Fungus <-> Allergies & Pain
+            4 to 2, // Endocrinology <-> Cardiology
+            5 to 1  // Allergies & Pain <-> Gastrology
         )
     }
 
@@ -253,12 +679,12 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
     // Map categories to high-fidelity, high-resolution emojis & custom visual properties
     val categoryDetails = remember {
         listOf(
-            Triple("🫀", Icons.Default.Favorite, "Cardiovascular"),
-            Triple("🫁", Icons.Default.Info, "Respiratory"),
-            Triple("🥗", Icons.Default.Refresh, "Gastrointestinal"),
-            Triple("🦠", Icons.Default.Warning, "Infectious Diseases"),
-            Triple("🩸", Icons.Default.Settings, "Endocrine"),
-            Triple("💊", Icons.Default.Info, "Pain Relief")
+            Triple("🧠", Icons.Default.Info, "Neurology"),
+            Triple("🥗", Icons.Default.Refresh, "Gastrology"),
+            Triple("🫀", Icons.Default.Favorite, "Cardiology"),
+            Triple("🦠", Icons.Default.Warning, "Infections & Fungus"),
+            Triple("🩸", Icons.Default.Settings, "Endocrinology"),
+            Triple("💊", Icons.Default.Info, "Allergies & Pain")
         )
     }
 
@@ -530,129 +956,458 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (selectedDrug != null) {
+                    // level 3: Drug Details & Molecular structure (ChemSketch/PubChem API)
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            IconButton(
+                                onClick = { selectedDrug = null },
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowLeft,
+                                    contentDescription = "Back to Subclass",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = selectedDrug!!.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = selectedDrug!!.hindiName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                selectedSubclass = null
+                                selectedDrug = null
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+
+                    // Drug Info Cards
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Dose: ${selectedDrug!!.standardDose}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "🎯 Indications: ${selectedDrug!!.indications}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Sasta Alternative Brand comparison (User requested generic suggestions)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f)
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f))
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "💡 Affordable & High-Quality Substitute",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .background(MaterialTheme.colorScheme.tertiary, RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "SAVE ${selectedDrug!!.costPercentSaving}%",
+                                            color = Color.White,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Prescribed Brand: ${selectedDrug!!.representativeBrand} (Expensive)",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "Generic Substitute: ${selectedDrug!!.genericAlternative}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+
+                        // ChemSketch API replacement using PubChem REST 2D depiction
+                        Column(
                             modifier = Modifier
-                                .size(30.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .background(Color.White, RoundedCornerShape(12.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                .padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(activeEmojis.first, fontSize = 15.sp)
+                            Text(
+                                text = "⚛️ Molecular Chemical Structure (Chem Sketch 2D)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${selectedDrug!!.name}/PNG",
+                                    contentDescription = "${selectedDrug!!.name} Structure",
+                                    modifier = Modifier.fillMaxHeight(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "2D Molecular structure depiction dynamically loaded for chemical analysis.",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
                         }
+                    }
+                } else if (selectedSubclass != null) {
+                    // level 2: Subclass treatment category
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IconButton(
+                                onClick = { selectedSubclass = null },
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowLeft,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Text(
+                                text = selectedSubclass!!.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = selectedSubclass!!.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Select a drug to view structure & sasta alternative:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        selectedSubclass!!.commonDrugs.forEach { drug ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedDrug = drug },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = drug.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Indication: ${drug.indications}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = "Open Drug Details",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // level 1: Main Category Overview & Treatment options
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(activeEmojis.first, fontSize = 15.sp)
+                            }
+                            Text(
+                                text = activeItem.first,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Arrow step backward
+                            IconButton(
+                                onClick = {
+                                    activeIndex = (activeIndex - 1 + categories.size) % categories.size
+                                    isAutoRotating = false
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowLeft,
+                                    contentDescription = "Previous Node",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // Arrow step forward
+                            IconButton(
+                                onClick = {
+                                    activeIndex = (activeIndex + 1) % categories.size
+                                    isAutoRotating = false
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowRight,
+                                    contentDescription = "Next Node",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = activeItem.second,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                    )
+
+                    // Render matching connection pathways
+                    val relatedIdx = relatedIndices[activeIndex] ?: -1
+                    if (relatedIdx != -1) {
+                        val relCategory = categories[relatedIdx]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "🔗 Connected Path:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Text(
+                                text = "${activeItem.first} matches therapeutic connections with ${relCategory.first}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    // Render matching subclasses (Treatment classes list)
+                    val subclasses = MedicalCatalog.categorySubclasses[activeItem.first] ?: emptyList()
+                    if (subclasses.isNotEmpty()) {
                         Text(
-                            text = activeItem.first,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "🩺 Medical Treatment Classes:",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            subclasses.forEach { subclass ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedSubclass = subclass },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = subclass.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowRight,
+                                                contentDescription = "View Subclass Drugs",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = subclass.hindiName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = subclass.description,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Arrow step backward
-                        IconButton(
+                        // Search action
+                        Button(
                             onClick = {
-                                activeIndex = (activeIndex - 1 + categories.size) % categories.size
-                                isAutoRotating = false
+                                viewModel.currentTab.value = "Search"
+                                viewModel.onSearchQueryChanged(activeItem.first)
                             },
-                            modifier = Modifier.size(26.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.KeyboardArrowLeft,
-                                contentDescription = "Previous Node",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                            modifier = Modifier.weight(1.1f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
                             )
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("View Care", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                         }
 
-                        // Arrow step forward
-                        IconButton(
+                        // Chat/Ask AI advice context card
+                        OutlinedButton(
                             onClick = {
-                                activeIndex = (activeIndex + 1) % categories.size
-                                isAutoRotating = false
+                                viewModel.currentTab.value = "AI Chat"
+                                viewModel.chatInput.value = "Provide a concise overview of typical care guidelines, key drug classes, and basic self-management advice for the ${activeItem.first} category (${activeItem.second})."
                             },
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.weight(0.9f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
                         ) {
-                            Icon(
-                                Icons.Default.KeyboardArrowRight,
-                                contentDescription = "Next Node",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Text("Ask Chat AI ⚡", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                         }
-                    }
-                }
-
-                Text(
-                    text = activeItem.second,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
-                )
-
-                // Render matching connection pathways
-                val relatedIdx = relatedIndices[activeIndex] ?: -1
-                if (relatedIdx != -1) {
-                    val relCategory = categories[relatedIdx]
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("🔗 Connected Path:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                        Text(
-                            text = "${activeItem.first} conditions correlate with ${relCategory.first}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Search action
-                    Button(
-                        onClick = {
-                            viewModel.currentTab.value = "Search"
-                            viewModel.onSearchQueryChanged(activeItem.first)
-                        },
-                        modifier = Modifier.weight(1.1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("View Care", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                    }
-
-                    // Chat/Ask AI advice context card
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.currentTab.value = "AI Chat"
-                            viewModel.chatInput.value = "Provide a concise overview of typical care guidelines, key drug classes, and basic self-management advice for the ${activeItem.first} category (${activeItem.second})."
-                        },
-                        modifier = Modifier.weight(0.9f),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                    ) {
-                        Text("Ask Chat AI ⚡", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -664,9 +1419,10 @@ fun RadialCategoryOrbitalWheel(viewModel: PharmaViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTabContent(viewModel: PharmaViewModel) {
+fun HomeTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
+    var activeHomeSection by remember { mutableStateOf("Quick Guide") } // Default to "Quick Guide" as requested
 
     Column(
         modifier = Modifier
@@ -675,59 +1431,259 @@ fun HomeTabContent(viewModel: PharmaViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Clinical Banner (Self-Drawn/Canvas Vector Accent Header)
+        // Dashboard Header with Settings Button
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (activeHomeSection == "Quick Guide") "Quick Guide" else "PharmaSense Dashboard",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = if (activeHomeSection == "Quick Guide") "100 Common Medications, Uses & Side Effects" else "Your personalized medication & diagnostic companion",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        // Custom Selector Pills to toggle between Quick Guide and Dashboard Tools
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (activeHomeSection == "Quick Guide") MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .clickable { activeHomeSection = "Quick Guide" }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "📖 100 Drugs Guide",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (activeHomeSection == "Quick Guide") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (activeHomeSection == "Dashboard") MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .clickable { activeHomeSection = "Dashboard" }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⚙️ Dashboard Tools",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (activeHomeSection == "Dashboard") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (activeHomeSection == "Quick Guide") {
+            CommonDrugsQuickGuideView(viewModel = viewModel)
+        } else {
+            // Academic Credentials Branding Card (Redesigned with Premium Designer Accents)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        RoundedCornerShape(16.dp)
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+            ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left designer accent stripe
+                Box(
+                    modifier = Modifier
+                        .width(6.dp)
+                        .height(84.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.secondary
+                                )
+                            )
+                        )
+                )
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.School,
+                            contentDescription = "Academic",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Pharmaceutical Computer Science Term Project",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Made by: Anish Kumar",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Roll Number: BPH/10041/23",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // Hero Clinical Banner (Redesigned with Premium Linear Gradient and Multi-tone Canvas Vector)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(130.dp)
-                .glassyGlow(MaterialTheme.colorScheme.primary),
+                .height(136.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    )
+                    .padding(16.dp)
+            ) {
                 Column(
-                    modifier = Modifier.fillMaxHeight().fillMaxWidth(0.68f),
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth(0.7f),
                     verticalArrangement = Arrangement.Center
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "PRO SYSTEM",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "PharmaSense AI",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
                     )
                     Text(
-                        text = "Your Smart Pharmacy Companion",
+                        text = "Smart Medical Advisor Suite",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.9f)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Explore medicines, check interactions & analyze lab sheets instantly.",
+                        text = "Scan medications, analyze lab parameters, and consult symptoms.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.70f)
+                        color = Color.White.copy(alpha = 0.75f)
                     )
                 }
                 
-                // Drawn pill geometry on canvas representing active clinical design
+                // Beautiful self-drawn capsule on canvas with shiny highlights
                 Canvas(
                     modifier = Modifier
-                        .size(75.dp)
+                        .size(80.dp)
                         .align(Alignment.CenterEnd)
                         .padding(end = 4.dp)
                 ) {
-                    drawRoundRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(MedicalTeal, SecondaryTeal)
-                        ),
-                        topLeft = Offset(10f, 20f),
-                        size = this.size / 1.5f,
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24f, 24f)
-                    )
-                    // Draw red capsule head cross
+                    val halfWidth = size.width / 2
+                    val halfHeight = size.height / 2
+                    
+                    // Draw glowing shadow circle
                     drawCircle(
-                        color = Color.White.copy(alpha = 0.28f),
-                        radius = 20f,
-                        center = Offset(size.width / 2.3f, size.height / 2f)
+                        color = Color.White.copy(alpha = 0.15f),
+                        radius = size.width * 0.45f,
+                        center = Offset(halfWidth, halfHeight)
+                    )
+                    // Draw outer ring
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.3f),
+                        radius = size.width * 0.35f,
+                        center = Offset(halfWidth, halfHeight),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    )
+                    // Draw cross symbol
+                    val armLength = 12.dp.toPx()
+                    val thickness = 4.dp.toPx()
+                    drawRect(
+                        color = Color.White,
+                        topLeft = Offset(halfWidth - thickness / 2, halfHeight - armLength / 2),
+                        size = androidx.compose.ui.geometry.Size(thickness, armLength)
+                    )
+                    drawRect(
+                        color = Color.White,
+                        topLeft = Offset(halfWidth - armLength / 2, halfHeight - thickness / 2),
+                        size = androidx.compose.ui.geometry.Size(armLength, thickness)
                     )
                 }
             }
@@ -944,6 +1900,177 @@ fun HomeTabContent(viewModel: PharmaViewModel) {
             }
         }
 
+        // Interactive User Manual Card
+        var selectedManualSection by remember { mutableStateOf("Overview") }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("📖", fontSize = 24.sp)
+                    Column {
+                        Text(
+                            text = "Interactive User Manual",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Learn how to use every feature of PharmaSense AI",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Sub-tabs inside the manual
+                ScrollableTabRow(
+                    selectedTabIndex = when (selectedManualSection) {
+                        "Overview" -> 0
+                        "Auth" -> 1
+                        "Catalog" -> 2
+                        "Analysis" -> 3
+                        "Interactions" -> 4
+                        "Offline" -> 5
+                        else -> 0
+                    },
+                    containerColor = Color.Transparent,
+                    edgePadding = 0.dp,
+                    divider = {}
+                ) {
+                    listOf(
+                        "Overview" to "Overview",
+                        "Auth" to "Real Auth",
+                        "Catalog" to "Drug Search",
+                        "Analysis" to "Lab & Symptoms",
+                        "Interactions" to "Interactions",
+                        "Offline" to "Non-AI Engine"
+                    ).forEach { (secId, secTitle) ->
+                        Tab(
+                            selected = selectedManualSection == secId,
+                            onClick = { selectedManualSection = secId }
+                        ) {
+                            Text(
+                                text = secTitle,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selectedManualSection == secId) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedManualSection == secId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    when (selectedManualSection) {
+                        "Overview" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("App Overview", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "PharmaSense AI is an advanced offline-first clinical helper and pharmaceutical informatics catalog. It provides molecular insights, drug-drug interaction alerts, and smart diagnostic health recommendations based on lab inputs and symptoms.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Key Features:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                BulletItem("🔐 Real secure authentication with device-encrypted databases.")
+                                BulletItem("🔍 Deep chemical indexing & high-quality generic recommendations.")
+                                BulletItem("📊 Lab blood report parser and emergency triage assistance.")
+                                BulletItem("🧪 Multi-medication synergy and drug interaction checker.")
+                                BulletItem("💬 On-device clinical AI advisor for health goals and diet.")
+                            }
+                        }
+                        "Auth" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Secure Profile Authentication", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "Your medical data is sensitive. The Profile tab uses real local secure cryptographic hashing to register and sign in users locally on the device.",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                StepItem(1, "Go to the Profile tab on the bottom bar.")
+                                StepItem(2, "Toggle to Register Mode, enter your Email and a secure Password.")
+                                StepItem(3, "Set your personal Age, Gender, and principal Health Goal.")
+                                StepItem(4, "Sign in to activate your Personal Health Dashboard, track medicine expenses, and analyze tailored clinical diet plans.")
+                            }
+                        }
+                        "Catalog" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Medical Catalog & Molecular Search", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "Allows searching for thousands of drug profiles. It renders structural categories, indications, dosing rules, and lists corresponding low-cost high-quality generic options.",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                StepItem(1, "Navigate to the Search tab or click search on the Home page.")
+                                StepItem(2, "Type keywords like 'Diabetes', 'Metformin', or 'Gastrology'.")
+                                StepItem(3, "Select any drug to view details: Standard dosage, brand prices vs generic equivalents, and molecular structural diagrams.")
+                            }
+                        }
+                        "Analysis" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Report Analyzer & Triage Assessment", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "A comprehensive engine containing a Lab Report Analyzer, Symptom Triage, and a Label Scanner to safely check ingredients.",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                BulletItem("📊 Lab Reports: Enter diagnostic quantitative results (Hemoglobin, WBC, Platelets, Glucose, Blood Pressure). It stores records and outputs clinical ranges (Normal / Low / High).")
+                                BulletItem("🌡️ Symptom Triage: Input current symptoms. The algorithm categorizes priority risk and tells you when to seek immediate medical intervention.")
+                                BulletItem("📷 Ingredient Scanner: Simulated camera labels scanner to extract medicine structures and match with cheaper alternatives instantly.")
+                            }
+                        }
+                        "Interactions" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Multi-Drug Synergy & Interaction Analyzer", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "Enables patients and practitioners to run complex checks for absorption blocks, dangerous overlapping mechanisms, or adverse reactions when taking multiple drugs simultaneously.",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("How to Use:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                StepItem(1, "Go to the Interactions tab.")
+                                StepItem(2, "Select your first medicine (e.g., Aspirin or Metformin).")
+                                StepItem(3, "Select your second medicine (e.g., Warfarin or Ibuprofen).")
+                                StepItem(4, "Click 'Analyze Interlocking Synergy' to get a detailed clinical rating (Severe Conflict, Moderate Warning, or Safe Synergism).")
+                            }
+                        }
+                        "Offline" -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Offline (Non-AI) Algorithmic Features", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "PharmaSense AI is engineered to function entirely offline without internet or AI servers. The following key options run strictly via pre-defined local algorithms, schemas, and cryptographic structures:",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                BulletItem("🔐 Cryptographic Local Auth: Registers and signs in user profiles locally using standard SHA-256 password hashing safely on-device.")
+                                BulletItem("🔍 Disease & Molecular Catalog: Deep offline index of medical categories, clinical indications, dosages, and high-quality generic alternative substitutions.")
+                                BulletItem("📊 Lab Analyzer: Checks exact values for Hemoglobin, WBC, Platelets, Glucose, and Blood Pressure against medical benchmarks to categorize levels (Normal, High, Low) instantly.")
+                                BulletItem("🌡️ Symptom Triage: Evaluates clinical symptoms (e.g., fever, chest pain, rash) against a deterministic emergency lookup table to highlight critical red flags.")
+                                BulletItem("🧪 Multi-Drug Interaction Grid: Employs a local matrices grid to verify known cross-drug overlapping actions (e.g., Ibuprofen + Aspirin) completely on-device.")
+                                BulletItem("💰 Expense Tracker: Log purchases and view budget stats saved securely in the device's local Room SQLite Database.")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        } // Close the else block of activeHomeSection switcher
+
         // Bottom Disclaimer
         Text(
             text = "PharmaSense AI is an educational smart pharmacy information companion. Always consult clinical practitioners for personal treatment plans.",
@@ -955,11 +2082,380 @@ fun HomeTabContent(viewModel: PharmaViewModel) {
     }
 }
 
+// --- 1.5 COMMON DRUGS QUICK GUIDE VIEW ---
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommonDrugsQuickGuideView(viewModel: PharmaViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedDrugForDetail by remember { mutableStateOf<InfographicDrug?>(null) }
+
+    val filteredCategories = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            CommonDrugsData.categories
+        } else {
+            CommonDrugsData.categories.map { category ->
+                category.copy(
+                    drugs = category.drugs.filter { drug ->
+                        drug.name.contains(searchQuery, ignoreCase = true) ||
+                        drug.uses.contains(searchQuery, ignoreCase = true) ||
+                        drug.sideEffects.contains(searchQuery, ignoreCase = true)
+                    }
+                )
+            }.filter { it.drugs.isNotEmpty() }
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Search Bar inside Infographic
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth().testTag("drugs_guide_search"),
+            placeholder = { Text("Search 100 drugs, uses, or side effects...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                    }
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            )
+        )
+
+        // Title Plate: Styled like the cute cloud-ribbon banner in screenshot
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+                        )
+                    ),
+                    RoundedCornerShape(24.dp)
+                )
+                .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "☁️ 100 COMMON DRUGS ☁️",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "⚡ & THEIR USES & SIDE EFFECTS ⚡",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary,
+                    letterSpacing = 0.5.sp
+                )
+                HorizontalDivider(
+                    modifier = Modifier.width(100.dp).padding(vertical = 4.dp),
+                    thickness = 1.5.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                )
+                Text(
+                    text = "Interactive Research Infographic • Quick Practice Guide",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // Draw Category Cards
+        filteredCategories.forEach { category ->
+            val colorVal = Color(android.graphics.Color.parseColor(category.accentColorHex))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        BorderStroke(1.5.dp, colorVal.copy(alpha = 0.4f)),
+                        RoundedCornerShape(16.dp)
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorVal.copy(alpha = 0.02f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Category Title Block
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colorVal.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = category.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colorVal
+                        )
+                        Box(
+                            modifier = Modifier
+                                .background(colorVal, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "N = ${category.drugs.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    // List of Drugs in Category
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        category.drugs.forEach { drug ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                    .clickable { selectedDrugForDetail = drug }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Rounded Index bubble
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .background(colorVal.copy(alpha = 0.15f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${drug.number}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = colorVal
+                                    )
+                                }
+
+                                // Drug and uses column
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = drug.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = "Details",
+                                            tint = colorVal.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Uses: ${drug.uses}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(1.dp))
+                                    Text(
+                                        text = "Side-Effects: ${drug.sideEffects}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = DangerAlertRed.copy(alpha = 0.85f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quick Tips Section (styled exactly like screenshot)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(BorderStroke(1.5.dp, Color(0xFFE0C068)), RoundedCornerShape(16.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFDF5)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lightbulb,
+                        contentDescription = "Quick Tips",
+                        tint = Color(0xFFD4AF37),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "QUICK TIPS",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF8B7355),
+                        letterSpacing = 1.sp
+                    )
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        "Use medicines only as prescribed by doctor.",
+                        "Complete the full course of antibiotics.",
+                        "Do not share medicines with others.",
+                        "Report any side effects to your doctor.",
+                        "Store medicines in a cool, dry place."
+                    ).forEach { tip ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "•",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8B7355)
+                            )
+                            Text(
+                                text = tip,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF5D4037),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Interactive Detail Dialog
+    selectedDrugForDetail?.let { drug ->
+        AlertDialog(
+            onDismissRequest = { selectedDrugForDetail = null },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${drug.number}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = drug.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Reference Monograph",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column {
+                        Text("🔬 Clinical Indication / Uses", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.uses, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Column {
+                        Text("⚠️ Side Effects", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = DangerAlertRed)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.sideEffects, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Column {
+                        Text("💡 Safe Use Precautions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(drug.precautions, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("💸 Cost Savings / Substitutes", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(drug.alternativeBrand, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        selectedDrugForDetail = null
+                        viewModel.currentTab.value = "AI Chat"
+                        viewModel.chatInput.value = "Provide comprehensive information about ${drug.name}: indications, standard pediatric and adult dosing, mechanism of action, complete list of contraindications, and general patient counseling notes."
+                    }
+                ) {
+                    Text("Ask Chat AI ⚡")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedDrugForDetail = null }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+}
+
 // --- 2. SEARCH / MEDICAL CATALOG TAB ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchTabContent(viewModel: PharmaViewModel) {
+fun SearchTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedDisease by viewModel.selectedDisease.collectAsStateWithLifecycle()
     val selectedDrug by viewModel.selectedDrug.collectAsStateWithLifecycle()
@@ -1010,6 +2506,11 @@ fun SearchTabContent(viewModel: PharmaViewModel) {
                             }) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                             }
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onSettingsClick, modifier = Modifier.testTag("settings_button")) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -1489,11 +2990,36 @@ fun DrugProfileView(drug: Drug, viewModel: PharmaViewModel) {
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ReportsTabContent(viewModel: PharmaViewModel) {
+fun ReportsTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     var selectedToolSubTab by remember { mutableStateOf("Report") }
     val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Clinical Diagnostic Suite",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
         TabRow(
             selectedTabIndex = if (selectedToolSubTab == "Report") 0 else if (selectedToolSubTab == "Symptom") 1 else 2,
             containerColor = MaterialTheme.colorScheme.surface
@@ -1615,63 +3141,180 @@ fun ReportAnalyzerPage(viewModel: PharmaViewModel) {
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("Decipher Medical Lab Sheets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                        Text("Input quantitative reading counts manually. PharmaSense AI calculates range deviations and parses next medical actions.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Upload a lab report or doctor's prescription photo, or enter readings manually. PharmaSense AI calculates range deviations, explains findings, and suggests cheaper branded generic medicine alternatives.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                        OutlinedTextField(
-                            value = title,
-                            onValueChange = { viewModel.reportTitleInput.value = it },
-                            label = { Text("Report Title") },
-                            modifier = Modifier.fillMaxWidth().testTag("rep_title_input"),
-                            singleLine = true
-                        )
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 1.dp)
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = hgb,
-                                onValueChange = { viewModel.hemoglobinInput.value = it },
-                                label = { Text("Hemoglobin (g/dL)") },
-                                modifier = Modifier.weight(1f).testTag("rep_hgb_input"),
-                                singleLine = true
-                            )
-                            OutlinedTextField(
-                                value = wbc,
-                                onValueChange = { viewModel.wbcInput.value = it },
-                                label = { Text("WBC Count (cells)") },
-                                modifier = Modifier.weight(1f).testTag("rep_wbc_input"),
-                                singleLine = true
-                            )
+                        // --- Dynamic Image/Photo Upload Option ---
+                        val context = LocalContext.current
+                        val imageUriString by viewModel.reportImageUriString.collectAsStateWithLifecycle()
+                        val launcher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.GetContent()
+                        ) { uri: Uri? ->
+                            if (uri != null) {
+                                try {
+                                    val inputStream = context.contentResolver.openInputStream(uri)
+                                    val bytes = inputStream?.readBytes()
+                                    inputStream?.close()
+                                    if (bytes != null) {
+                                        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                                        viewModel.reportImageUriString.value = uri.toString()
+                                        viewModel.reportImageBase64.value = base64
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = platelets,
-                                onValueChange = { viewModel.plateletInput.value = it },
-                                label = { Text("Platelets (count)") },
-                                modifier = Modifier.weight(1f).testTag("rep_plt_input"),
-                                singleLine = true
+                        if (imageUriString != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                AsyncImage(
+                                    model = imageUriString,
+                                    contentDescription = "Selected Report",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.reportImageUriString.value = null
+                                        viewModel.reportImageBase64.value = null
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                                }
+                            }
+
+                            Text(
+                                text = "✨ Prescription/Report Photo Selected! Gemini will scan the photo, list possible medicines, and match them with cheaper, high-quality alternatives from top pharma brands.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
-                            OutlinedTextField(
-                                value = glucose,
-                                onValueChange = { viewModel.glucoseInput.value = it },
-                                label = { Text("Blood Glucose (mg/dL)") },
-                                modifier = Modifier.weight(1f).testTag("rep_glu_input"),
-                                singleLine = true
-                            )
+                        } else {
+                            Card(
+                                onClick = { launcher.launch("image/*") },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AddPhotoAlternate,
+                                        contentDescription = "Upload Photo",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Upload Prescription / Lab Report Photo",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Scan doctor prescriptions or lab sheets to find cost-saving medicine brands",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (imageUriString == null) {
+                            Text(
+                                text = "— OR ENTER MEASUREMENTS MANUALLY —",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                                fontWeight = FontWeight.Bold
+                            )
+
                             OutlinedTextField(
-                                value = bpSys,
-                                onValueChange = { viewModel.bpSystolicInput.value = it },
-                                label = { Text("BP Systolic (mmHg)") },
-                                modifier = Modifier.weight(1f).testTag("rep_bps_input"),
+                                value = title,
+                                onValueChange = { viewModel.reportTitleInput.value = it },
+                                label = { Text("Report Title") },
+                                modifier = Modifier.fillMaxWidth().testTag("rep_title_input"),
                                 singleLine = true
                             )
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = hgb,
+                                    onValueChange = { viewModel.hemoglobinInput.value = it },
+                                    label = { Text("Hemoglobin (g/dL)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_hgb_input"),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = wbc,
+                                    onValueChange = { viewModel.wbcInput.value = it },
+                                    label = { Text("WBC Count (cells)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_wbc_input"),
+                                    singleLine = true
+                                )
+                            }
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = platelets,
+                                    onValueChange = { viewModel.plateletInput.value = it },
+                                    label = { Text("Platelets (count)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_plt_input"),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = glucose,
+                                    onValueChange = { viewModel.glucoseInput.value = it },
+                                    label = { Text("Blood Glucose (mg/dL)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_glu_input"),
+                                    singleLine = true
+                                )
+                            }
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = bpSys,
+                                    onValueChange = { viewModel.bpSystolicInput.value = it },
+                                    label = { Text("BP Systolic (mmHg)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_bps_input"),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = bpDia,
+                                    onValueChange = { viewModel.bpDiastolicInput.value = it },
+                                    label = { Text("BP Diastolic (mmHg)") },
+                                    modifier = Modifier.weight(1f).testTag("rep_bpd_input"),
+                                    singleLine = true
+                                )
+                            }
+                        } else {
+                            // If an image is uploaded, we still allow title customization
                             OutlinedTextField(
-                                value = bpDia,
-                                onValueChange = { viewModel.bpDiastolicInput.value = it },
-                                label = { Text("BP Diastolic (mmHg)") },
-                                modifier = Modifier.weight(1f).testTag("rep_bpd_input"),
+                                value = title,
+                                onValueChange = { viewModel.reportTitleInput.value = it },
+                                label = { Text("Report Title / Name") },
+                                modifier = Modifier.fillMaxWidth().testTag("rep_title_input"),
                                 singleLine = true
                             )
                         }
@@ -1681,7 +3324,10 @@ fun ReportAnalyzerPage(viewModel: PharmaViewModel) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     CircularProgressIndicator()
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    Text("Gemini is analyzing counts... (Up to 15s)", style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        text = if (imageUriString != null) "Gemini is scanning photo & matching cheaper alternatives... (Up to 15s)" else "Gemini is analyzing counts... (Up to 15s)",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
                             }
                         } else {
@@ -1692,7 +3338,10 @@ fun ReportAnalyzerPage(viewModel: PharmaViewModel) {
                             ) {
                                 Icon(Icons.Default.Insights, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Analyze and Save Lab Report", fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = if (imageUriString != null) "Scan Photo & Find Cheap Alternatives" else "Analyze and Save Lab Report",
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -1988,7 +3637,7 @@ val ColorScheme.primaryHex: Color get() = this.primary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InteractionsTabContent(viewModel: PharmaViewModel) {
+fun InteractionsTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     val d1 by viewModel.interactionDrug1.collectAsStateWithLifecycle()
     val d2 by viewModel.interactionDrug2.collectAsStateWithLifecycle()
     val risk by viewModel.interactionResultRisk.collectAsStateWithLifecycle()
@@ -2007,6 +3656,37 @@ fun InteractionsTabContent(viewModel: PharmaViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Dashboard Header with Settings Button
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Interactions Matrix",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Analyze molecular matches & overlapping chemical side effects",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -2179,7 +3859,7 @@ fun InteractionsTabContent(viewModel: PharmaViewModel) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChatTabContent(viewModel: PharmaViewModel) {
+fun ChatTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
     val messages by viewModel.chatMessages.collectAsStateWithLifecycle()
     val input by viewModel.chatInput.collectAsStateWithLifecycle()
     val loading by viewModel.chatLoading.collectAsStateWithLifecycle()
@@ -2206,7 +3886,7 @@ fun ChatTabContent(viewModel: PharmaViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -2222,9 +3902,14 @@ fun ChatTabContent(viewModel: PharmaViewModel) {
                     }
                 }
                 
-                if (messages.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.clearChatHistory() }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear History", tint = MaterialTheme.colorScheme.error)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (messages.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.clearChatHistory() }) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Clear History", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    IconButton(onClick = onSettingsClick, modifier = Modifier.testTag("settings_button")) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -2388,3 +4073,1010 @@ fun PaddingRowInsideChat(q: String) {
         Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
     }
 }
+
+// --- PROFILE & AUTHENTICATION DASHBOARD TAB ---
+
+@Composable
+fun ProfileTabContent(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
+    val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
+
+    if (!isLoggedIn) {
+        ProfileAuthScreen(viewModel, onSettingsClick)
+    } else {
+        ProfileDashboardScreen(viewModel, onSettingsClick)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileAuthScreen(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
+    var isRegisterMode by remember { mutableStateOf(false) }
+    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf(30f) }
+    var gender by remember { mutableStateOf("Male") }
+    var healthGoal by remember { mutableStateOf("Maintain Good Health") }
+    
+    var expandedGender by remember { mutableStateOf(false) }
+    var expandedGoal by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            IconButton(onClick = onSettingsClick, modifier = Modifier.testTag("settings_button")) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = if (isRegisterMode) "Create Your Profile" else "Access Your Health Profile",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center
+        )
+
+        Text(
+            text = if (isRegisterMode) "Set up your medical dashboard, track expenses & receive customized diet & test recommendations." else "Sign in to access your disease history, health data, and personalized AI tips.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (errorMessage != null) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(12.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        if (isRegisterMode) {
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
+                leadingIcon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().testTag("auth_username_input"),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email Address") },
+            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth().testTag("auth_email_input"),
+            singleLine = true
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (isRegisterMode) {
+            OutlinedTextField(
+                value = fullName,
+                onValueChange = { fullName = it },
+                label = { Text("Full Name") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().testTag("auth_fullname_input"),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth().testTag("auth_password_input"),
+            singleLine = true
+        )
+
+        if (isRegisterMode) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Age:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("${age.toInt()} Years", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = age,
+                    onValueChange = { age = it },
+                    valueRange = 1f..100f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Gender:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+                ExposedDropdownMenuBox(
+                    expanded = expandedGender,
+                    onExpandedChange = { expandedGender = !expandedGender }
+                ) {
+                    OutlinedTextField(
+                        value = gender,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGender) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGender,
+                        onDismissRequest = { expandedGender = false }
+                    ) {
+                        listOf("Male", "Female", "Other").forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = {
+                                    gender = item
+                                    expandedGender = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Health Goal:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+                ExposedDropdownMenuBox(
+                    expanded = expandedGoal,
+                    onExpandedChange = { expandedGoal = !expandedGoal }
+                ) {
+                    OutlinedTextField(
+                        value = healthGoal,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGoal) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGoal,
+                        onDismissRequest = { expandedGoal = false }
+                    ) {
+                        listOf("Maintain Good Health", "Manage Diabetes", "Control Hypertension", "Optimize Digestion", "Pain Relief Management").forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = {
+                                    healthGoal = item
+                                    expandedGoal = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                errorMessage = null
+                if (isRegisterMode) {
+                    if (username.isBlank() || email.isBlank() || password.isBlank() || fullName.isBlank()) {
+                        errorMessage = "Please fill all required fields!"
+                    } else {
+                        viewModel.registerNewUser(
+                            usrName = username,
+                            mail = email,
+                            name = fullName,
+                            pass = password,
+                            userAge = age.toInt(),
+                            userGender = gender,
+                            goal = healthGoal,
+                            onSuccess = {},
+                            onError = { err -> errorMessage = err }
+                        )
+                    }
+                } else {
+                    if (email.isBlank() || password.isBlank()) {
+                        errorMessage = "Please enter both email and password!"
+                    } else {
+                        viewModel.loginExistingUser(
+                            mail = email,
+                            pass = password,
+                            onSuccess = {},
+                            onError = { err -> errorMessage = err }
+                        )
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("auth_submit_button"),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = if (isRegisterMode) "Register & Generate Dashboard ⚡" else "Sign In Securely 🛡️",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(
+            onClick = { 
+                isRegisterMode = !isRegisterMode 
+                errorMessage = null
+            }
+        ) {
+            Text(
+                text = if (isRegisterMode) "Already have an account? Sign In" else "Don't have an account? Register Now",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileDashboardScreen(viewModel: PharmaViewModel, onSettingsClick: () -> Unit) {
+    val fullName by viewModel.fullName.collectAsStateWithLifecycle()
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val age by viewModel.age.collectAsStateWithLifecycle()
+    val gender by viewModel.gender.collectAsStateWithLifecycle()
+    val healthGoal by viewModel.healthGoal.collectAsStateWithLifecycle()
+
+    val reports by viewModel.reportsList.collectAsStateWithLifecycle()
+    val expenses by viewModel.expensesList.collectAsStateWithLifecycle()
+    val userDiseases by viewModel.userDiseasesList.collectAsStateWithLifecycle()
+
+    val testingRecommendations by viewModel.testingRecommendations.collectAsStateWithLifecycle()
+    val personalDiet by viewModel.personalDiet.collectAsStateWithLifecycle()
+    val discoveryNews by viewModel.customDiscoveryNews.collectAsStateWithLifecycle()
+    val insightsLoading by viewModel.profileInsightsLoading.collectAsStateWithLifecycle()
+
+    var showAddExpenseDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // --- 1. USER PROFILE HEADER CARD ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = fullName.firstOrNull()?.toString()?.uppercase() ?: "P",
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = fullName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = email,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onSettingsClick,
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                                .size(36.dp)
+                                .testTag("settings_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.logout() },
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), CircleShape)
+                                .size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ExitToApp,
+                                contentDescription = "Logout",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Age", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$age Years", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Column {
+                        Text("Gender", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(gender, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Column {
+                        Text("Health Goal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(healthGoal, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // --- 2. USER DISEASES / CONDITIONS SECTION ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "🩺 Track Your Conditions:",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = "Select your medical conditions to customize diet plans, diagnostic screenings, and scientific breakthroughs.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                val availableDiseases = MedicalCatalog.diseases
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    availableDiseases.forEach { disease ->
+                        val isTracked = userDiseases.any { it.diseaseId == disease.id }
+                        DiseaseSelectChip(
+                            name = disease.name,
+                            isSelected = isTracked,
+                            onClick = { viewModel.toggleUserDisease(disease.id, disease.name) }
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- 3. TOTAL MEDICINE EXPENSE TRACKER ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "📊 Medicine Expenses:",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val totalSpent = expenses.sumOf { it.cost }
+                        Text(
+                            text = "Total Spent: ₹${String.format("%.2f", totalSpent)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = { showAddExpenseDialog = true },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (expenses.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No medicine expenses logged yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        expenses.take(5).forEach { expense ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = expense.drugName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Category: ${expense.category}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "₹${expense.cost}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.deleteMedicineExpense(expense.id) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Expense",
+                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (expenses.size > 5) {
+                            Text(
+                                text = "+ ${expenses.size - 5} more transactions logged",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 4. MEDICAL REPORTS HISTORY SECTION ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "📄 Lab Reports History:",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                if (reports.isEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .clickable { viewModel.currentTab.value = "Reports" }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("🧪", fontSize = 24.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("No reports submitted yet", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("Click here to add your first lab report for dynamic health analysis.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    val lastReport = reports.first()
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🔴 Last Analysis: ${lastReport.title}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            when (lastReport.riskLevel) {
+                                                "High" -> MaterialTheme.colorScheme.error
+                                                "Moderate" -> Color(0xFFF2994A)
+                                                else -> MaterialTheme.colorScheme.primary
+                                            },
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = lastReport.riskLevel,
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Indication: ${lastReport.possibleIndication}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Details: ${lastReport.labData}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Previous Records:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        reports.drop(1).take(3).forEach { previousReport ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        viewModel.activeDetailedReport.value = previousReport
+                                        viewModel.currentTab.value = "Reports"
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = previousReport.title,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = previousReport.possibleIndication,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            when (previousReport.riskLevel) {
+                                                "High" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                                                "Moderate" -> Color(0xFFF2994A).copy(alpha = 0.1f)
+                                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            },
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = previousReport.riskLevel,
+                                        color = when (previousReport.riskLevel) {
+                                            "High" -> MaterialTheme.colorScheme.error
+                                            "Moderate" -> Color(0xFFF2994A)
+                                            else -> MaterialTheme.colorScheme.primary
+                                        },
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 5. PERSONALIZED MEDICAL RECOGNITIONS SECTION (GEMINI POWERED) ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚡ Personalized AI Insights:",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    IconButton(
+                        onClick = { viewModel.generateProfileInsights() },
+                        enabled = !insightsLoading,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                            .size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh Insights",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (insightsLoading) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(40.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Gemini is personalizing your diagnostic tests, custom diet plan & recent health breakthrough news...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+                } else {
+                    var selectedSubTab by remember { mutableStateOf(0) }
+
+                    TabRow(
+                        selectedTabIndex = selectedSubTab,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Tab(
+                            selected = selectedSubTab == 0,
+                            onClick = { selectedSubTab = 0 },
+                            text = { Text("Diagnostics", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        )
+                        Tab(
+                            selected = selectedSubTab == 1,
+                            onClick = { selectedSubTab = 1 },
+                            text = { Text("Diet Plan", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        )
+                        Tab(
+                            selected = selectedSubTab == 2,
+                            onClick = { selectedSubTab = 2 },
+                            text = { Text("Health News", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val activeContent = when (selectedSubTab) {
+                        0 -> testingRecommendations ?: "Please tap the refresh icon above to trigger preventative testing guidelines customized to your profile."
+                        1 -> personalDiet ?: "Please tap the refresh icon above to design a customized meal nutrition guide based on your disease profile."
+                        else -> discoveryNews ?: "Please tap the refresh icon above to generate health news flashes relevant to your conditions."
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                Text(
+                                    text = when (selectedSubTab) {
+                                        0 -> "🩺 Preventative Screenings"
+                                        1 -> "🥗 Personalized Diet Plan"
+                                        else -> "🔬 Clinical News & Advancements"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = activeContent,
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddExpenseDialog) {
+        var drugName by remember { mutableStateOf("") }
+        var costInput by remember { mutableStateOf("") }
+        var categoryInput by remember { mutableStateOf("Allergies & Pain") }
+        var expandedCat by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showAddExpenseDialog = false },
+            title = { Text("Log Medicine Purchase") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = drugName,
+                        onValueChange = { drugName = it },
+                        label = { Text("Medicine Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = costInput,
+                        onValueChange = { costInput = it },
+                        label = { Text("Cost (INR / ₹)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        )
+                    )
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Category:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        ExposedDropdownMenuBox(
+                            expanded = expandedCat,
+                            onExpandedChange = { expandedCat = !expandedCat }
+                        ) {
+                            OutlinedTextField(
+                                value = categoryInput,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat) },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expandedCat,
+                                onDismissRequest = { expandedCat = false }
+                            ) {
+                                listOf("Allergies & Pain", "Cardiology", "Endocrinology", "Gastrology", "Infections & Fungus", "Neurology", "Other").forEach { item ->
+                                    DropdownMenuItem(
+                                        text = { Text(item) },
+                                        onClick = {
+                                            categoryInput = item
+                                            expandedCat = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val cost = costInput.toDoubleOrNull() ?: 0.0
+                        if (drugName.isNotBlank() && cost > 0.0) {
+                            viewModel.addMedicineExpense(drugName, cost, categoryInput)
+                            showAddExpenseDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save Expense")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddExpenseDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun DiseaseSelectChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        modifier = Modifier.padding(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Text(
+                text = name,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun BulletItem(text: String) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text("•", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun StepItem(stepNumber: Int, text: String) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text(
+            text = "$stepNumber.",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(end = 6.dp)
+        )
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun ManualStepItem(title: String, description: String) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, top = 2.dp)
+        )
+    }
+}
+
